@@ -1,0 +1,21 @@
+# Environments
+.env
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Django
+*.sqlite3
+/staticfiles/
+/media/
+db.sqlite3
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
