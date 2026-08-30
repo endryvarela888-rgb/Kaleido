@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% block title %}Kaleido — {{ profile_user.display_name }}{% endblock %}
+
+{% block content %}
+<div class="page-narrow">
+    <section class="profile-header">
+        <div class="profile-avatar" id="avatarTrigger">
+            {% if profile_user.avatar %}
+                <img class="avatar avatar--lg" src="{{ profile_user.avatar.url }}"
+                     style="object-position: {{ profile_user.avatar_position_x }}% {{ profile_user.avatar_position_y }}%;"
+                     alt="{{ profile_user.display_name }}">
+            {% else %}
+                <span class="avatar avatar--lg">{{ profile_user.display_name|first|upper }}</span>
+            {% endif %}
+            {% if is_own_profile %}
+                <span class="profile-avatar__hint">Change photo</span>
+            {% endif %}
+        </div>
+
+        {% if profile_user.is_creator and profile_user.creator_profile.category %}
+            <span class="profile-category-badge">{{ profile_user.creator_profile.category.name }}</span>
+        {% endif %}
+
+        <h1 class="profile-header__name">{{ profile_user.display_name }}</h1>
+        <p class="profile-header__bio">{{ profile_user.bio|default:"No bio yet." }}</p>
+
+        {% if is_own_profile %}
+            <button type="button" class="profile-edit-link" id="profileEditToggle">Edit profile</button>
+        {% endif %}
+    </section>
+
+    {% if is_own_profile %}
+    <form method="post" enctype="multipart/form-data" class="profile-edit-form" id="profileEditForm" hidden>
+        {% csrf_token %}
+        <div class="avatar-editor">
+            <div class="avatar-editor__preview" id="avatarPreview"
+                 style="background-image: url('{% if profile_user.avatar %}{{ profile_user.avatar.url }}{% endif %}');
+                        background-position: {{ profile_user.avatar_position_x }}% {{ profile_user.avatar_position_y }}%;">
+            </div>
+            <p class="avatar-editor__hint">Drag the photo to reposition it</p>
+        </div>
+        {{ edit_form.avatar }}
+        {{ edit_form.avatar_position_x }}
+        {{ edit_form.avatar_position_y }}
+
+        <label>Display name {{ edit_form.display_name }}</label>
+        <label>Bio {{ edit_form.bio }}</label>
+        <button type="submit" name="save_profile" class="btn btn--primary btn--sm">Save changes</button>
+    </form>
+    {% endif %}
+
+    {% if profile_user.is_creator %}
+        {% if tiers %}
+        <section class="profile-tiers">
+            <h2 class="section-heading">Membership tiers</h2>
+            <p class="settings-info">Higher tiers include everything unlocked by the tiers below them.</p>
+            <div class="tier-list">
+                {% for tier in tiers %}
+                <article class="tier-card">
+                    <p class="tier-card__level">Level {{ tier.level }}</p>
+                    <p class="tier-card__name">{{ tier.name }}</p>
+                    <p class="tier-card__price">${{ tier.price }}/mo</p>
+                    <p class="tier-card__description">{{ tier.description }}</p>
+                    {% if not is_own_profile %}
+                        {% if my_subscription and my_subscription.tier.level == tier.level %}
+                            <span class="btn btn--ghost btn--sm tier-card__current">Current plan</span>
+                        {% elif my_subscription and my_subscription.tier.level > tier.level %}
+                            <a href="{% url 'payments:checkout' tier.id %}" class="btn btn--ghost btn--sm">Downgrade to this</a>
+                        {% else %}
+                            <a href="{% url 'payments:checkout' tier.id %}" class="btn btn--primary btn--sm">
+                                {% if my_subscription %}Upgrade{% else %}Subscribe{% endif %}
+                            </a>
+                        {% endif %}
+                    {% endif %}
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% if is_own_profile and all_own_content %}
+        <section class="featured-picker">
+            <h2 class="section-heading">Choose featured content</h2>
+            <p class="settings-info">Pick up to 6 pieces to showcase at the top of your profile.</p>
+            <form method="post" class="featured-picker__form">
+                {% csrf_token %}
+                <div class="featured-picker__list">
+                    {% for item in all_own_content %}
+                    <label class="featured-picker__item">
+                        <input type="checkbox" name="featured" value="{{ item.id }}" {% if item.is_featured %}checked{% endif %}>
+                        {{ item.title }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <button type="submit" name="save_featured" class="btn btn--ghost btn--sm">Save selection</button>
+            </form>
+        </section>
+        {% endif %}
+
+        {% if featured_items %}
+        <section class="profile-content">
+            <h2 class="section-heading">Featured</h2>
+            <div class="content-grid">
+                {% for item in featured_items %}
+                    {% include 'includes/content_card.html' %}
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% if library_items %}
+        <section class="profile-content">
+            <button type="button" class="btn btn--ghost btn--sm" id="libraryToggle">View content</button>
+            <div class="content-grid" id="libraryGrid" hidden>
+                {% for item in library_items %}
+                    {% include 'includes/content_card.html' %}
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const editToggle = document.getElementById('profileEditToggle');
+    const editForm = document.getElementById('profileEditForm');
+    const avatarTrigger = document.getElementById('avatarTrigger');
+    const fileInput = document.getElementById('avatarFileInput');
+    const preview = document.getElementById('avatarPreview');
+    const posX = document.getElementById('avatarPosX');
+    const posY = document.getElementById('avatarPosY');
+
+    function openEditForm() {
+        if (editForm) editForm.hidden = false;
+        if (editToggle) editToggle.hidden = true;
+    }
+
+    if (editToggle && editForm) {
+        editToggle.addEventListener('click', openEditForm);
+    }
+
+    if (avatarTrigger && fileInput) {
+        avatarTrigger.addEventListener('click', () => {
+            openEditForm();
+            fileInput.click();
+        });
+    }
+
+    if (fileInput && preview) {
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            preview.style.backgroundImage = `url('${URL.createObjectURL(file)}')`;
+            posX.value = 50;
+            posY.value = 50;
+            preview.style.backgroundPosition = '50% 50%';
+        });
+    }
+
+    if (preview && posX && posY) {
+        let dragging = false;
+        preview.addEventListener('mousedown', () => { dragging = true; });
+        window.addEventListener('mouseup', () => { dragging = false; });
+        preview.addEventListener('mousemove', (e) => {
+            if (!dragging) return;
+            const rect = preview.getBoundingClientRect();
+            const x = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+            const y = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)));
+            posX.value = x;
+            posY.value = y;
+            preview.style.backgroundPosition = `${x}% ${y}%`;
+        });
+    }
+
+    const libraryToggle = document.getElementById('libraryToggle');
+    const libraryGrid = document.getElementById('libraryGrid');
+    if (libraryToggle && libraryGrid) {
+        libraryToggle.addEventListener('click', () => {
+            libraryGrid.hidden = !libraryGrid.hidden;
+            libraryToggle.textContent = libraryGrid.hidden ? 'View content' : 'Hide content';
+        });
+    }
+});
+</script>
+{% endblock %}

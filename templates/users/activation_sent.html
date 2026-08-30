@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}Kaleido — Check your email{% endblock %}
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <h1 class="auth-title">Check your inbox</h1>
+        <p class="auth-subtitle">We sent a verification link to <strong>{{ email }}</strong>. Click it to activate your account.</p>
+    </div>
+</div>
+{% endblock %}

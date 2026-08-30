@@ -1,0 +1,39 @@
+{% extends 'creator_dashboard/base.html' %}
+{% block title %}Kaleido — My tiers{% endblock %}
+{% block dashboard_content %}
+<h1 class="page-heading">Membership tiers</h1>
+<p class="settings-info">{{ tiers.count }} of 3 tiers used.</p>
+
+<div class="tier-list">
+    {% for tier in tiers %}
+    <article class="tier-card">
+        <p class="tier-card__name">{{ tier.name }}{% if not tier.is_active %} (inactive){% endif %}</p>
+        <p class="tier-card__price">${{ tier.price }}/mo — level {{ tier.level }}</p>
+        <p class="tier-card__description">{{ tier.description }}</p>
+        <div class="tier-card__actions">
+            <a href="{% url 'creator_tiers:edit' tier.id %}" class="btn btn--ghost btn--sm">Edit</a>
+            {% if tier.is_active %}
+            <form method="post" action="{% url 'creator_tiers:deactivate' tier.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn--ghost btn--sm">Deactivate</button>
+            </form>
+            {% endif %}
+        </div>
+    </article>
+    {% endfor %}
+</div>
+
+{% if can_add_tier %}
+<h2 class="section-heading">Add a new tier</h2>
+<form method="post" class="profile-edit-form">
+    {% csrf_token %}
+    <label>Name {{ form.name }}</label>
+    <label>Description {{ form.description }}</label>
+    <label>Price (USD/month) {{ form.price }}</label>
+    <label>Level {{ form.level }} {{ form.level.errors }}</label>
+    <button type="submit" class="btn btn--primary btn--sm">Save changes</button>
+</form>
+{% else %}
+<p class="empty-state">You've reached the maximum of 3 tiers.</p>
+{% endif %}
+{% endblock %}

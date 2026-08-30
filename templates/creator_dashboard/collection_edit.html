@@ -1,0 +1,30 @@
+{% extends 'creator_dashboard/base.html' %}
+{% block title %}Kaleido — Edit collection{% endblock %}
+{% block dashboard_content %}
+<h1 class="page-heading">Edit collection</h1>
+
+<form method="post" enctype="multipart/form-data" class="profile-edit-form">
+    {% csrf_token %}
+    <label>Title {{ form.title }}</label>
+    <label>Description {{ form.description }}</label>
+    <label>Cover image {{ form.cover_image }}</label>
+    <label>Required tier {{ form.minimum_tier }}</label>
+    <p class="settings-info">Changing the tier updates every item inside this collection.</p>
+
+    <h2 class="section-heading">Content in this collection</h2>
+    <div class="featured-picker__list">
+        {% for item in all_content %}
+        <label class="featured-picker__item">
+            <input type="checkbox" name="content_items" value="{{ item.id }}"
+                   {% if item.id in current_ids %}checked{% endif %}>
+            {{ item.title }}
+            {% if item.collection_id and item.collection_id != collection.id %}
+                <span class="featured-picker__note">(currently in "{{ item.collection.title }}")</span>
+            {% endif %}
+        </label>
+        {% endfor %}
+    </div>
+
+    <button type="submit" class="btn btn--primary btn--sm">Save changes</button>
+</form>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends 'creator_dashboard/base.html' %}
+{% block title %}Kaleido — Payouts{% endblock %}
+{% block dashboard_content %}
+<h1 class="page-heading">Payouts</h1>
+
+{% if not profile.stripe_account_id %}
+    <p class="settings-info">Connect a bank account with Stripe to start receiving payouts from your subscribers.</p>
+    <form method="post" action="{% url 'payments:creator_payouts_connect' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn--primary btn--sm">Connect with Stripe</button>
+    </form>
+{% elif account.payouts_enabled %}
+    <p class="settings-info">✅ Payouts are active. Stripe deposits earnings to your connected account automatically.</p>
+{% else %}
+    <p class="settings-info">Your Stripe account needs a bit more information before payouts can start.</p>
+    <form method="post" action="{% url 'payments:creator_payouts_connect' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn--primary btn--sm">Continue onboarding</button>
+    </form>
+{% endif %}
+{% endblock %}

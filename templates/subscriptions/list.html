@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Kaleido — My subscriptions{% endblock %}
+
+{% block content %}
+<div class="page-narrow">
+    <h1 class="page-heading">My subscriptions</h1>
+
+    {% if not subscriptions %}
+        <p class="empty-state">You're not subscribed to any creator yet.</p>
+    {% endif %}
+
+    <div class="subscription-list">
+        {% for sub in subscriptions %}
+        <article class="subscription-card" data-subscription-trigger>
+            <span class="avatar avatar--md">{{ sub.creator.display_name|first|upper }}</span>
+            <div class="subscription-card__info">
+                <p class="subscription-card__creator">{{ sub.creator.display_name }}</p>
+                <p class="subscription-card__tier">{{ sub.tier.name }} — ${{ sub.tier.price }}/mo</p>
+                {% if sub.cancel_at_period_end %}
+                    <p class="subscription-card__status subscription-card__status--canceling">
+                        Cancels on {{ sub.current_period_end|date:"M d, Y" }}
+                    </p>
+                {% else %}
+                    <p class="subscription-card__status">Renews on {{ sub.current_period_end|date:"M d, Y" }}</p>
+                {% endif %}
+            </div>
+
+            {% if sub.cancel_at_period_end %}
+            <form method="post" action="{% url 'subscriptions:renew' sub.id %}" data-stop-propagation>
+                {% csrf_token %}
+                <button type="submit" class="btn btn--primary btn--sm">Renew</button>
+            </form>
+            {% else %}
+            <form method="post" action="{% url 'subscriptions:cancel' sub.id %}" data-stop-propagation>
+                {% csrf_token %}
+                <button type="submit" class="btn btn--ghost btn--sm">Cancel</button>
+            </form>
+            {% endif %}
+
+            <div class="subscription-popup">
+                <span class="avatar avatar--md">{{ sub.creator.display_name|first|upper }}</span>
+                <p class="subscription-popup__name">{{ sub.creator.display_name }}</p>
+                <p class="subscription-popup__tier">{{ sub.tier.name }} — ${{ sub.tier.price }}/mo — Level {{ sub.tier.level }}</p>
+                <p class="subscription-popup__meta">Subscriber since {{ sub.created_at|date:"M d, Y" }}</p>
+                {% if sub.cancel_at_period_end %}
+                    <p class="subscription-popup__meta">Access ends {{ sub.current_period_end|date:"M d, Y" }}</p>
+                {% else %}
+                    <p class="subscription-popup__meta">Renews {{ sub.current_period_end|date:"M d, Y" }}</p>
+                {% endif %}
+                <a href="{% url 'users:profile' sub.creator.id %}" class="btn btn--primary btn--sm">Go to creator</a>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

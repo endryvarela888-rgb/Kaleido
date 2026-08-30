@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Kaleido — Log in{% endblock %}
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <h1 class="auth-title">Welcome back</h1>
+
+        {% if form.non_field_errors %}
+            <div class="form-error">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <form method="post" class="auth-form">
+            {% csrf_token %}
+            <label>Email
+                {{ form.username }}
+                {{ form.username.errors }}
+            </label>
+            <label>Password
+                {{ form.password }}
+                {{ form.password.errors }}
+            </label>
+            <button type="submit" class="btn btn--primary btn--block">Log in</button>
+        </form>
+
+        <p class="auth-footer">
+            <a href="{% url 'users:password_reset' %}">Forgot your password?</a>
+        </p>
+        <p class="auth-footer">Don't have an account? <a href="{% url 'users:signup' %}">Sign up</a></p>
+    </div>
+</div>
+{% endblock %}

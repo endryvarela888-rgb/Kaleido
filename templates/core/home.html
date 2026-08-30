@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Kaleido — Home{% endblock %}
+
+{% block content %}
+<div class="feed-layout">
+    <section class="feed-column">
+        {% if is_search %}
+            <p class="search-results-heading">
+                Results for "{{ search_query }}"
+                {% if not content_items %}— nothing found.{% endif %}
+            </p>
+        {% endif %}
+
+        {% for item in content_items %}
+            {% include 'includes/content_card.html' %}
+        {% endfor %}
+    </section>
+
+    <aside class="discover-column">
+        <h2 class="discover-heading">{% if is_search %}Matching creators{% else %}Discover creators{% endif %}</h2>
+        {% for creator in discover_creators %}
+            {% include 'includes/creator_mini_card.html' %}
+        {% endfor %}
+    </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'creator_dashboard/base.html' %}
+{% block title %}Kaleido — Edit content{% endblock %}
+{% block dashboard_content %}
+<h1 class="page-heading">Edit content</h1>
+<form method="post" enctype="multipart/form-data" class="profile-edit-form">
+    {% csrf_token %}
+    <label>Title {{ form.title }}</label>
+    <label>Description {{ form.description }}</label>
+    <label>Media file {{ form.media_file }} {{ form.media_file.errors }}</label>
+    <label>Cover image {{ form.thumbnail }}</label>
+    <label>Collection {{ form.collection }}</label>
+    <label>Minimum tier {{ form.minimum_tier }}</label>
+    <button type="submit" class="btn btn--primary btn--sm">Save changes</button>
+</form>
+{% endblock %}

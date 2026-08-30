@@ -1,0 +1,54 @@
+<article class="content-card">
+    <header class="content-card__creator" data-creator-trigger>
+        <span class="avatar avatar--sm">{{ item.creator.display_name|first|upper }}</span>
+        <span class="creator-name">{{ item.creator.display_name }}</span>
+
+        <div class="creator-popup">
+            <span class="avatar avatar--md">{{ item.creator.display_name|first|upper }}</span>
+            <p class="creator-popup__name">{{ item.creator.display_name }}</p>
+            {% if item.creator.creator_profile.category %}
+                <p class="creator-popup__category">{{ item.creator.creator_profile.category.name }} creator</p>
+            {% endif %}
+            <a href="{% url 'users:profile' item.creator.pk %}" class="btn btn--primary btn--sm">Visit profile</a>
+        </div>
+    </header>
+
+    {% if item.content_type != 'text' %}
+    <div class="content-card__media {% if item.is_locked %}is-locked{% endif %}">
+        <div class="media-placeholder media-placeholder--{{ item.content_type }}"></div>
+        {% if item.is_locked %}
+        <div class="lock-seal">
+            <svg aria-hidden="true" viewBox="0 0 60 60" fill="none">
+                <circle cx="30" cy="30" r="26" stroke="currentColor" stroke-width="1.2"/>
+                <circle cx="30" cy="30" r="19" stroke="currentColor" stroke-width="0.8"/>
+                <path d="M30 11v38M11 30h38M16 16l28 28M44 16L16 44" stroke="currentColor" stroke-width="0.8"/>
+            </svg>
+            <span class="lock-seal__label">Subscribers only</span>
+            <a href="{% url 'payments:checkout' item.minimum_tier_id %}" class="btn btn--primary btn--sm">
+                Unlock "{{ item.minimum_tier.name }}" — ${{ item.minimum_tier.price }}/mo
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="content-card__body">
+        <h3 class="content-card__title">{{ item.title }}</h3>
+        <p class="content-card__description">{{ item.description }}</p>
+    </div>
+
+    <footer class="content-card__actions">
+        <button class="action-btn" data-like-trigger>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7.5-4.6-10-9.3C.5 8 2 4.5 5.5 4c2-.3 3.7.6 4.9 2.2C11.6 4.6 13.3 3.7 15.3 4c3.5.5 5 4 3.5 7.7-2.5 4.7-10 9.3-10 9.3z" stroke="currentColor" stroke-width="1.6"/></svg>
+            <span class="action-count">{{ item.likes_count }}</span>
+        </button>
+        <button class="action-btn" data-comment-trigger>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M21 12c0 4.4-4 8-9 8-1.1 0-2.2-.2-3.2-.5L3 21l1.6-4.4C3.6 15.2 3 13.7 3 12c0-4.4 4-8 9-8s9 3.6 9 8z" stroke="currentColor" stroke-width="1.6"/></svg>
+            <span>Comments</span>
+        </button>
+    </footer>
+
+    <div class="content-card__comments" hidden>
+        <p class="comments-empty">No comments yet. Be the first to write one.</p>
+    </div>
+</article>

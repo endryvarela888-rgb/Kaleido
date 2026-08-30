@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="dashboard-layout">
+    <nav class="dashboard-tabs">
+        <a href="{% url 'creator_content:new' %}" class="dashboard-tab {% if active_tab == 'new_content' %}is-active{% endif %}">New content</a>
+        <a href="{% url 'creator_content:list' %}" class="dashboard-tab {% if active_tab == 'content' %}is-active{% endif %}">Content</a>
+        <a href="{% url 'creator_content:collection_list' %}" class="dashboard-tab {% if active_tab == 'collections' %}is-active{% endif %}">Collections</a>
+        <a href="{% url 'creator_tiers:list' %}" class="dashboard-tab {% if active_tab == 'tiers' %}is-active{% endif %}">Tiers</a>
+        <a href="{% url 'payments:creator_stats' %}" class="dashboard-tab {% if active_tab == 'stats' %}is-active{% endif %}">Stats</a>
+        <a href="{% url 'payments:creator_payouts' %}" class="dashboard-tab {% if active_tab == 'payouts' %}is-active{% endif %}">Payouts</a>
+    </nav>
+    <div class="dashboard-panel">
+        {% block dashboard_content %}{% endblock %}
+    </div>
+</div>
+{% endblock %}

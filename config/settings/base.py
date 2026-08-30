@@ -67,10 +67,11 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'apps.core.context_processors.nav_categories',  # ← agregá esta línea
             ],
         },
     },
-]
+]           
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
@@ -96,6 +97,12 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@kaleido.local')
+
+STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY')
+STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET')
+STRIPE_PLATFORM_FEE_PERCENT = env.int('STRIPE_PLATFORM_FEE_PERCENT', default=10)
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

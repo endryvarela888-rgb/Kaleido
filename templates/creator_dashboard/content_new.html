@@ -1,0 +1,55 @@
+{% extends 'creator_dashboard/base.html' %}
+{% block title %}Kaleido — New content{% endblock %}
+{% block dashboard_content %}
+<h1 class="page-heading">New content</h1>
+<form method="post" enctype="multipart/form-data" class="profile-edit-form">
+    {% csrf_token %}
+    <label>Title {{ form.title }}</label>
+    <label>Description (always visible, even on gated media) {{ form.description }}</label>
+    <label>Media file (leave empty for a text-only post) {{ form.media_file }} {{ form.media_file.errors }}</label>
+    <label>Cover image (optional, mainly for video) {{ form.thumbnail }}</label>
+    <label>Collection (optional) {{ form.collection }}</label>
+    <label id="tierFieldWrapper">Minimum tier (leave empty for free content) {{ form.minimum_tier }}</label>
+    <p class="settings-info" id="tierInheritedNote" hidden>This content will inherit its tier from the selected collection.</p>
+
+    <fieldset class="publish-options">
+        <legend>When should this go live?</legend>
+        {% for radio in form.publish_when %}
+            <label class="radio-label">{{ radio.tag }} {{ radio.choice_label }}</label>
+        {% endfor %}
+        <div id="scheduleField" hidden>
+            <label>Date &amp; time {{ form.scheduled_at }} {{ form.scheduled_at.errors }}</label>
+        </div>
+    </fieldset>
+
+    <button type="submit" class="btn btn--primary btn--sm">Publish</button>
+</form>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const radios = document.querySelectorAll('input[name="publish_when"]');
+    const scheduleField = document.getElementById('scheduleField');
+    function sync() {
+        const checked = document.querySelector('input[name="publish_when"]:checked');
+        scheduleField.hidden = !checked || checked.value !== 'schedule';
+    }
+    radios.forEach((r) => r.addEventListener('change', sync));
+    sync();
+
+    const collectionSelect = document.querySelector('[name="collection"]');
+    const tierSelect = document.querySelector('[name="minimum_tier"]');
+    const tierNote = document.getElementById('tierInheritedNote');
+    if (collectionSelect && tierSelect && tierNote) {
+        function syncTierField() {
+            const hasCollection = !!collectionSelect.value;
+            tierSelect.disabled = hasCollection;
+            tierNote.hidden = !hasCollection;
+        }
+        collectionSelect.addEventListener('change', syncTierField);
+        syncTierField();
+    }
+});
+</script>
+{% endblock %}

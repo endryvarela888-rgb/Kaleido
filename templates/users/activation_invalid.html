@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}Kaleido — Invalid link{% endblock %}
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <h1 class="auth-title">This link is invalid or expired</h1>
+        <p class="auth-subtitle">Try signing up again to get a new verification email.</p>
+        <a href="{% url 'users:signup' %}" class="btn btn--primary btn--block">Back to sign up</a>
+    </div>
+</div>
+{% endblock %}
