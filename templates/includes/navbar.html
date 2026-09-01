@@ -16,7 +16,13 @@
     <div class="topbar-right">
         {% if user.is_authenticated %}
             <button class="avatar-btn" id="userMenuToggle" aria-label="Open user menu">
-                <span class="avatar avatar--sm">{{ user.display_name|first|upper }}</span>
+                {% if user.avatar %}
+                    <img class="avatar avatar--sm avatar--image" src="{{ user.avatar.url }}"
+                         style="object-position: {{ user.avatar_position_x }}% {{ user.avatar_position_y }}%;"
+                         alt="{{ user.display_name }}">
+                {% else %}
+                    <span class="avatar avatar--sm">{{ user.display_name|first|upper }}</span>
+                {% endif %}
             </button>
             <div class="dropdown-menu" id="userMenu">
                 {% if user.is_creator %}

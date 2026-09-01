@@ -9,6 +9,7 @@ urlpatterns = [
     path('users/', include('apps.users.urls', namespace='users')),
     path('payments/', include('apps.payments.urls', namespace='payments')),
     path('subscriptions/', include('apps.subscriptions.urls', namespace='subscriptions')),
+    path('', include('apps.content.public_urls', namespace='content')),
     path('creator/', include('apps.content.urls', namespace='creator_content')),
     path('creator/tiers/', include('apps.tiers.urls', namespace='creator_tiers')),
 ]

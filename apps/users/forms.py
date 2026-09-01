@@ -42,6 +42,13 @@ class SignupForm(forms.ModelForm):
         return user
 
 
+class ResendActivationForm(forms.Form):
+    email = forms.EmailField(
+        label='Email',
+        widget=forms.EmailInput(attrs={'class': INPUT_CLASS, 'autofocus': True}),
+    )
+
+
 class EmailLoginForm(AuthenticationForm):
     username = forms.EmailField(
         label='Email',

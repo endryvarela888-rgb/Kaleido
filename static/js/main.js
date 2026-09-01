@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initCreatorPopups();
     initLikeButtons();
     initCommentToggles();
+    initContentPlayerActions();
     initSubscriptionPopups();
 });
 
@@ -108,9 +109,31 @@ function initLikeButtons() {
 function initCommentToggles() {
     document.querySelectorAll('[data-comment-trigger]').forEach((btn) => {
         btn.addEventListener('click', () => {
-            const card = btn.closest('.content-card');
-            const panel = card?.querySelector('.content-card__comments');
+            const container = btn.closest('.content-card, .content-player');
+            const panel = container?.querySelector('.content-card__comments, .content-player__comments');
             if (panel) panel.hidden = !panel.hidden;
+        });
+    });
+}
+
+/* Content player actions --------------------------------------------------- */
+function initContentPlayerActions() {
+    document.querySelectorAll('[data-share-trigger]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(window.location.href);
+                btn.textContent = 'Link copied';
+                window.setTimeout(() => { btn.textContent = 'Share'; }, 1800);
+            } catch {
+                window.prompt('Copy this link:', window.location.href);
+            }
+        });
+    });
+
+    document.querySelectorAll('[data-fullscreen-trigger]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const player = btn.closest('.content-player');
+            if (player?.requestFullscreen) player.requestFullscreen();
         });
     });
 }

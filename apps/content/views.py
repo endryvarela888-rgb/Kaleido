@@ -8,6 +8,59 @@ from apps.users.decorators import creator_required
 
 from .forms import ContentForm, CollectionForm
 from .models import Content, Collection
+from .access import annotate_lock_state
+from .queries import visible_content_filter
+
+
+def public_collection_detail(request, pk):
+    """Show a creator's public collection and its currently visible items."""
+    collection = get_object_or_404(
+        Collection.objects.select_related(
+            'creator',
+            'creator__creator_profile',
+            'creator__creator_profile__category',
+            'minimum_tier',
+        ),
+        pk=pk,
+    )
+
+    content_items = list(
+        collection.items.filter(visible_content_filter())
+        .select_related(
+            'creator',
+            'creator__creator_profile',
+            'creator__creator_profile__category',
+            'minimum_tier',
+        )
+        .order_by('order', '-created_at')
+    )
+    annotate_lock_state(request, content_items)
+
+    return render(
+        request,
+        'content/collection_detail.html',
+        {
+            'collection': collection,
+            'content_items': content_items,
+        },
+    )
+
+
+def public_content_detail(request, pk):
+    """Render one public content item in a distraction-free player view."""
+    item = get_object_or_404(
+        Content.objects.filter(visible_content_filter()).select_related(
+            'creator',
+            'creator__creator_profile',
+            'creator__creator_profile__category',
+            'minimum_tier',
+            'collection',
+        ),
+        pk=pk,
+    )
+    annotate_lock_state(request, [item])
+
+    return render(request, 'content/content_detail.html', {'item': item})
 
 
 @creator_required

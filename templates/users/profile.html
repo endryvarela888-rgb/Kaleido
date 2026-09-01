@@ -108,12 +108,50 @@
         </section>
         {% endif %}
 
-        {% if library_items %}
-        <section class="profile-content">
-            <button type="button" class="btn btn--ghost btn--sm" id="libraryToggle">View content</button>
-            <div class="content-grid" id="libraryGrid" hidden>
+        {% if library_items or collections %}
+        <section class="profile-library" data-initial-tab="{{ initial_library_tab }}">
+            <div class="profile-library__tabs" role="tablist" aria-label="Creator library">
+                <button type="button" class="profile-library__tab" id="contentTab"
+                        role="tab" aria-controls="libraryGrid" aria-selected="false">
+                    View content
+                </button>
+                <button type="button" class="profile-library__tab" id="collectionsTab"
+                        role="tab" aria-controls="collectionsGrid" aria-selected="false">
+                    View collections
+                </button>
+            </div>
+
+            <div class="content-grid" id="libraryGrid" role="tabpanel" aria-labelledby="contentTab" {% if initial_library_tab != 'content' %}hidden{% endif %}>
                 {% for item in library_items %}
                     {% include 'includes/content_card.html' %}
+                {% empty %}
+                    <p class="empty-state">No public content yet.</p>
+                {% endfor %}
+            </div>
+
+            <div class="collection-grid" id="collectionsGrid" role="tabpanel" aria-labelledby="collectionsTab" {% if initial_library_tab != 'collections' %}hidden{% endif %}>
+                {% for collection in collections %}
+                <a href="{% url 'content:collection_detail' collection.pk %}" class="collection-card">
+                    <div class="collection-card__cover">
+                        {% if collection.cover_image %}
+                            <img src="{{ collection.cover_image.url }}" alt="Cover for {{ collection.title }}">
+                        {% else %}
+                            <span aria-hidden="true">{{ collection.title|first|upper }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="collection-card__body">
+                        <h3 class="collection-card__title">{{ collection.title }}</h3>
+                        {% if collection.description %}
+                            <p class="collection-card__description">{{ collection.description }}</p>
+                        {% endif %}
+                        <div class="collection-card__meta">
+                            <span>{{ collection.visible_item_count }} item{{ collection.visible_item_count|pluralize }}</span>
+                            <span>{% if collection.minimum_tier %}{{ collection.minimum_tier.name }}{% else %}Free{% endif %}</span>
+                        </div>
+                    </div>
+                </a>
+                {% empty %}
+                    <p class="empty-state">No public collections yet.</p>
                 {% endfor %}
             </div>
         </section>
@@ -175,14 +213,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const libraryToggle = document.getElementById('libraryToggle');
+    const library = document.querySelector('.profile-library');
+    const contentTab = document.getElementById('contentTab');
+    const collectionsTab = document.getElementById('collectionsTab');
     const libraryGrid = document.getElementById('libraryGrid');
-    if (libraryToggle && libraryGrid) {
-        libraryToggle.addEventListener('click', () => {
-            libraryGrid.hidden = !libraryGrid.hidden;
-            libraryToggle.textContent = libraryGrid.hidden ? 'View content' : 'Hide content';
-        });
+    const collectionsGrid = document.getElementById('collectionsGrid');
+
+    function selectLibraryTab(tabName) {
+        const showContent = tabName === 'content';
+        if (libraryGrid) libraryGrid.hidden = !showContent;
+        if (collectionsGrid) collectionsGrid.hidden = showContent;
+        if (contentTab) {
+            contentTab.classList.toggle('profile-library__tab--active', showContent);
+            contentTab.setAttribute('aria-selected', String(showContent));
+        }
+        if (collectionsTab) {
+            collectionsTab.classList.toggle('profile-library__tab--active', !showContent);
+            collectionsTab.setAttribute('aria-selected', String(!showContent));
+        }
     }
+
+    if (library) selectLibraryTab(library.dataset.initialTab || 'content');
+    if (contentTab) contentTab.addEventListener('click', () => selectLibraryTab('content'));
+    if (collectionsTab) collectionsTab.addEventListener('click', () => selectLibraryTab('collections'));
 });
 </script>
 {% endblock %}

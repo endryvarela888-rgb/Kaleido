@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}Kaleido — Resend verification email{% endblock %}
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <h1 class="auth-title">Resend verification email</h1>
+        <p class="auth-subtitle">Enter the email address you used to create your Kaleido account.</p>
+
+        <form method="post" class="auth-form">
+            {% csrf_token %}
+            <label>Email
+                {{ form.email }}
+                {{ form.email.errors }}
+            </label>
+            <button type="submit" class="btn btn--primary btn--block">Resend email</button>
+        </form>
+
+        <p class="auth-footer"><a href="{% url 'users:login' %}">Back to log in</a></p>
+    </div>
+</div>
+{% endblock %}

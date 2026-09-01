@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Kaleido — {{ collection.title }}{% endblock %}
+
+{% block content %}
+<div class="page-narrow">
+    <section class="collection-header">
+        <a class="collection-header__creator" href="{% url 'users:profile' collection.creator.pk %}">
+            <span class="avatar avatar--sm">{{ collection.creator.display_name|first|upper }}</span>
+            <span>{{ collection.creator.display_name }}</span>
+        </a>
+        <div class="collection-header__title-row">
+            <div>
+                <p class="collection-header__eyebrow">Collection</p>
+                <h1 class="collection-header__title">{{ collection.title }}</h1>
+            </div>
+            {% if collection.minimum_tier %}
+                <span class="collection-header__tier">{{ collection.minimum_tier.name }}</span>
+            {% else %}
+                <span class="collection-header__tier">Free</span>
+            {% endif %}
+        </div>
+        {% if collection.description %}
+            <p class="collection-header__description">{{ collection.description }}</p>
+        {% endif %}
+    </section>
+
+    <section class="collection-content" aria-label="Collection content">
+        <div class="content-grid">
+            {% for item in content_items %}
+                {% include 'includes/content_card.html' %}
+            {% empty %}
+                <p class="empty-state">This collection has no public content yet.</p>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

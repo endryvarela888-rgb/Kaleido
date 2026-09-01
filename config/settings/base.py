@@ -100,6 +100,16 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@kaleido.local')
 
+# SMTP configuration is environment-driven so credentials never live in the
+# repository. Development keeps a console fallback in dev.py until SMTP is
+# explicitly enabled in .env.
+EMAIL_HOST = env('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = env.int('EMAIL_PORT', default=587)
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
+EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=10)
+
 STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET')
 STRIPE_PLATFORM_FEE_PERCENT = env.int('STRIPE_PLATFORM_FEE_PERCENT', default=10)
