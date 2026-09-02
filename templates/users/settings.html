@@ -36,7 +36,9 @@
             </p>
         {% else %}
             <p class="settings-info">Become a creator to publish content and set up subscription tiers.</p>
-            <form method="post">
+            <form method="post" class="js-confirm-delete"
+                  data-confirm-message="Become a creator? You'll be able to publish content and set up subscription tiers."
+                  data-confirm-button-text="Become a creator">
                 {% csrf_token %}
                 <button type="submit" name="become_creator" class="btn btn--primary btn--sm">Become a creator</button>
             </form>

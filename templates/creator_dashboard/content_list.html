@@ -2,27 +2,34 @@
 {% block title %}Kaleido — My content{% endblock %}
 {% block dashboard_content %}
 <h1 class="page-heading">Your content</h1>
-<div class="dashboard-list">
+
+<div class="dash-search-bar">
+    <input type="text" id="contentSearchInput" class="field-input" placeholder="Search your content by title…">
+</div>
+
+<div class="dash-content-grid" id="dashContentGrid">
     {% for item in content_items %}
-    <article class="dashboard-row">
-        <span class="dashboard-row__tag">{{ item.get_content_type_display }}</span>
-        <span class="dashboard-row__title">{{ item.title }}</span>
-        <span class="dashboard-row__meta">{{ item.minimum_tier.name|default:"Free" }}</span>
-        <span class="dashboard-row__meta">
-            {% if item.published_at > now %}
-                Scheduled — {{ item.published_at|date:"M d, Y H:i" }}
-            {% else %}
-                Published
-            {% endif %}
-        </span>
-        <a href="{% url 'creator_content:edit' item.id %}" class="btn btn--ghost btn--sm">Edit</a>
-        <form method="post" action="{% url 'creator_content:delete' item.id %}">
-            {% csrf_token %}
-            <button type="submit" class="btn btn--ghost btn--sm">Delete</button>
-        </form>
-    </article>
+        {% include 'creator_dashboard/_content_card.html' %}
     {% empty %}
-    <p class="empty-state">You haven't published anything yet.</p>
+        <p class="empty-state">You haven't published anything yet.</p>
     {% endfor %}
 </div>
 {% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('contentSearchInput');
+    const cards = document.querySelectorAll('#dashContentGrid .dash-content-card');
+    if (!input) return;
+
+    input.addEventListener('input', () => {
+        const query = input.value.trim().toLowerCase();
+        cards.forEach((card) => {
+            const title = card.dataset.title || '';
+            card.hidden = query.length > 0 && !title.includes(query);
+        });
+    });
+});
+</script>
+{% endblock %} 

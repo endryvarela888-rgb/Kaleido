@@ -160,37 +160,28 @@ class ContentForm(forms.ModelForm):
 
 
 class CollectionForm(forms.ModelForm):
+    remove_cover_image = forms.BooleanField(required=False, widget=forms.HiddenInput())
 
     class Meta:
         model = Collection
-
-        fields = [
-            'title',
-            'description',
-            'cover_image',
-            'minimum_tier',
-        ]
-
+        fields = ['title', 'description', 'cover_image', 'minimum_tier']
         widgets = {
-            'title': forms.TextInput(
-                attrs={'class': INPUT_CLASS}
-            ),
-            'description': forms.Textarea(
-                attrs={
-                    'class': INPUT_CLASS,
-                    'rows': 3,
-                }
-            ),
-            'minimum_tier': forms.Select(
-                attrs={'class': INPUT_CLASS}
-            ),
+            'title': forms.TextInput(attrs={'class': INPUT_CLASS}),
+            'description': forms.Textarea(attrs={'class': INPUT_CLASS, 'rows': 3}),
+            'cover_image': forms.FileInput(attrs={'id': 'collectionCoverInput', 'hidden': True}),
+            'minimum_tier': forms.Select(attrs={'class': INPUT_CLASS}),
         }
 
     def __init__(self, *args, creator=None, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self.fields['minimum_tier'].queryset = (
-            creator.tiers.filter(is_active=True)
-        )
-
+        self.fields['minimum_tier'].queryset = creator.tiers.filter(is_active=True)
         self.fields['minimum_tier'].required = False
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if self.cleaned_data.get('remove_cover_image'):
+            instance.cover_image.delete(save=False)
+            instance.cover_image = None
+        if commit:
+            instance.save()
+        return instance

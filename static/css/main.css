@@ -1020,3 +1020,192 @@ input, select { font-family: inherit; color: inherit; }
     margin-top: 12px;
 }
 .collection-content { margin-top: 24px; }
+
+/* ==========================================================================
+   Delete confirmation modal
+   ========================================================================== */
+.confirm-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.confirm-modal-overlay.is-open { display: flex; }
+.confirm-modal {
+    background: var(--color-twilight);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    max-width: 320px;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+.confirm-modal__message { font-size: 0.9rem; margin-bottom: 18px; }
+.confirm-modal__actions { display: flex; gap: 10px; justify-content: center; }
+.confirm-modal__actions .btn { width: auto; padding-left: 18px; padding-right: 18px; }
+
+/* ==========================================================================
+   Styled file input
+   ========================================================================== */
+.file-input-wrapper { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.file-input-wrapper__native {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+.file-input-wrapper__button { width: auto; padding-left: 16px; padding-right: 16px; }
+.file-input-wrapper__filename { font-size: 0.8rem; color: var(--color-text-muted); }
+
+/* ==========================================================================
+   Featured content picker — horizontal scroll strip
+   ========================================================================== */
+.featured-picker__search { margin-bottom: 14px; max-width: 320px; }
+
+.featured-picker__strip {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+}
+
+.featured-pick-card { flex: 0 0 auto; width: 120px; cursor: pointer; text-align: center; }
+.featured-pick-card__thumb {
+    position: relative;
+    width: 120px;
+    height: 90px;
+    border-radius: var(--radius-sm);
+    background: var(--color-twilight);
+    border: 2px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+.featured-pick-card__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.featured-pick-card__thumb video { width: 100%; height: 100%; object-fit: cover; }
+.featured-pick-card__icon { font-size: 1.8rem; }
+.featured-pick-card:has(input:checked) .featured-pick-card__thumb { border-color: var(--color-gold); }
+
+.featured-pick-card__check {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--color-gold);
+    color: var(--color-void);
+    font-size: 0.7rem;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.featured-pick-card:has(input:checked) .featured-pick-card__check { display: flex; }
+
+.featured-pick-card__title {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    margin-top: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   Collection cover editor + content picker
+   ========================================================================== */
+.cover-editor { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 4px; }
+.cover-editor__preview {
+    width: 100%;
+    max-width: 320px;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--radius-md);
+    background-size: cover;
+    background-position: center;
+    background-color: var(--color-twilight);
+    border: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.cover-editor__placeholder { font-size: 0.8rem; color: var(--color-text-muted); }
+.cover-editor__actions { display: flex; gap: 8px; }
+.cover-editor__actions .btn { width: auto; padding-left: 14px; padding-right: 14px; }
+
+.collection-picker__strip {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    margin: 14px 0;
+}
+
+/* ==========================================================================
+   Creator dashboard — visual content management grid
+   ========================================================================== */
+.dash-search-bar { margin-bottom: 20px; max-width: 400px; }
+
+.dash-content-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 18px;
+}
+
+.dash-content-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.dash-content-card__media {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    background: var(--color-twilight);
+}
+.dash-content-card__media img,
+.dash-content-card__media video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.dash-content-card__badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: rgba(13, 8, 24, 0.7);
+    color: var(--color-gold);
+    padding: 3px 8px;
+    border-radius: 999px;
+}
+.dash-content-card__audio { display: flex; align-items: center; justify-content: center; height: 100%; padding: 0 16px; }
+.dash-content-card__audio audio { width: 100%; }
+.dash-content-card__text-preview {
+    padding: 16px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+.dash-content-card__text-preview p { font-size: 0.85rem; color: var(--color-text-muted); line-height: 1.5; }
+
+.dash-content-card__body { padding: 12px 14px 4px; }
+.dash-content-card__title { font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; }
+.dash-content-card__meta { font-size: 0.75rem; color: var(--color-text-muted); }
+
+.dash-content-card__actions { display: flex; gap: 8px; padding: 12px 14px 14px; margin-top: auto; }
+.dash-content-card__actions .btn { width: auto; padding-left: 14px; padding-right: 14px; }

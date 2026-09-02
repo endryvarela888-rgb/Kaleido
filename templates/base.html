@@ -26,6 +26,15 @@
         {% endif %}
         {% block content %}{% endblock %}
     </main>
+    <div class="confirm-modal-overlay" id="confirmModalOverlay">
+        <div class="confirm-modal">
+            <p class="confirm-modal__message" id="confirmModalMessage">Are you sure?</p>
+            <div class="confirm-modal__actions">
+                <button type="button" class="btn btn--ghost btn--sm" id="confirmModalCancel">Cancel</button>
+                <button type="button" class="btn btn--primary btn--sm" id="confirmModalConfirm">Delete</button>
+            </div>
+        </div>
+    </div>
 
     <script src="{% static 'js/main.js' %}"></script>
     {% block extra_scripts %}{% endblock %}

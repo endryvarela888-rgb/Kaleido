@@ -79,16 +79,34 @@
         {% endif %}
 
         {% if is_own_profile and all_own_content %}
-        <section class="featured-picker">
+        <section class="featured-picker" id="featuredPickerSection" hidden>
             <h2 class="section-heading">Choose featured content</h2>
             <p class="settings-info">Pick up to 6 pieces to showcase at the top of your profile.</p>
-            <form method="post" class="featured-picker__form">
+
+            <input type="text" id="featuredSearchInput" class="field-input featured-picker__search"
+                   placeholder="Search your content…">
+
+            <form method="post">
                 {% csrf_token %}
-                <div class="featured-picker__list">
+                <div class="featured-picker__strip" id="featuredPickerStrip">
                     {% for item in all_own_content %}
-                    <label class="featured-picker__item">
-                        <input type="checkbox" name="featured" value="{{ item.id }}" {% if item.is_featured %}checked{% endif %}>
-                        {{ item.title }}
+                    <label class="featured-pick-card" data-title="{{ item.title|lower }}">
+                        <input type="checkbox" name="featured" value="{{ item.id }}" {% if item.is_featured %}checked{% endif %} hidden>
+                        <div class="featured-pick-card__thumb">
+                            {% if item.content_type == 'image' and item.media_file %}
+                                <img src="{{ item.media_file.url }}" alt="">
+                            {% elif item.content_type == 'video' and item.thumbnail %}
+                                <img src="{{ item.thumbnail.url }}" alt="">
+                            {% elif item.content_type == 'video' and item.media_file %}
+                                <video src="{{ item.media_file.url }}" muted></video>
+                            {% elif item.content_type == 'audio' %}
+                                <span class="featured-pick-card__icon">🎵</span>
+                            {% else %}
+                                <span class="featured-pick-card__icon">📝</span>
+                            {% endif %}
+                            <span class="featured-pick-card__check">✓</span>
+                        </div>
+                        <p class="featured-pick-card__title">{{ item.title }}</p>
                     </label>
                     {% endfor %}
                 </div>
@@ -173,6 +191,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openEditForm() {
         if (editForm) editForm.hidden = false;
+        const featuredSection = document.getElementById('featuredPickerSection');
+        if (featuredSection) featuredSection.hidden = false;
         if (editToggle) editToggle.hidden = true;
     }
 
@@ -237,5 +257,29 @@ document.addEventListener('DOMContentLoaded', () => {
     if (contentTab) contentTab.addEventListener('click', () => selectLibraryTab('content'));
     if (collectionsTab) collectionsTab.addEventListener('click', () => selectLibraryTab('collections'));
 });
+
+    const featuredStrip = document.getElementById('featuredPickerStrip');
+    if (featuredStrip) {
+        const MAX_FEATURED = 6;
+        featuredStrip.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+            cb.addEventListener('change', () => {
+                const checkedCount = featuredStrip.querySelectorAll('input[type="checkbox"]:checked').length;
+                if (checkedCount > MAX_FEATURED) {
+                    cb.checked = false;
+                    alert(`You can only feature up to ${MAX_FEATURED} items.`);
+                }
+            });
+        });
+    }
+
+    const featuredSearch = document.getElementById('featuredSearchInput');
+    if (featuredSearch && featuredStrip) {
+        featuredSearch.addEventListener('input', () => {
+            const query = featuredSearch.value.trim().toLowerCase();
+            featuredStrip.querySelectorAll('.featured-pick-card').forEach((card) => {
+                card.hidden = query.length > 0 && !card.dataset.title.includes(query);
+            });
+        });
+    }
 </script>
 {% endblock %}

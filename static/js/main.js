@@ -1,12 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
-    initParticles();
-    initSidebar();
-    initUserMenu();
-    initCreatorPopups();
-    initLikeButtons();
-    initCommentToggles();
-    initContentPlayerActions();
-    initSubscriptionPopups();
+    const inits = [
+        initParticles, initSidebar, initUserMenu, initCreatorPopups,
+        initLikeButtons, initCommentToggles, initSubscriptionPopups,
+        initDeleteConfirmations, initFileInputs, initContentPlayerActions,
+    ];
+    inits.forEach((fn) => {
+        try {
+            fn();
+        } catch (err) {
+            console.error(`${fn.name} failed:`, err);
+        }
+    });
 });
 
 /* Ambient particle field -------------------------------------------------- */
@@ -68,9 +72,6 @@ function initCreatorPopups() {
         const popup = trigger.querySelector('.creator-popup');
         if (!popup) return;
 
-        // Move the popup out of the card into <body>, so the card's
-        // overflow:hidden (needed for rounded media thumbnails) can't
-        // clip it anymore. Position is calculated fresh on every open.
         document.body.appendChild(popup);
 
         trigger.addEventListener('click', (e) => {
@@ -157,5 +158,73 @@ function initSubscriptionPopups() {
 
     document.addEventListener('click', () => {
         document.querySelectorAll('.subscription-popup.is-open').forEach((p) => p.classList.remove('is-open'));
+    });
+}
+
+/* Generic delete confirmation modal — any form with class "js-confirm-delete" */
+function initDeleteConfirmations() {
+    const overlay = document.getElementById('confirmModalOverlay');
+    const messageEl = document.getElementById('confirmModalMessage');
+    const cancelBtn = document.getElementById('confirmModalCancel');
+    const confirmBtn = document.getElementById('confirmModalConfirm');
+    if (!overlay || !messageEl || !cancelBtn || !confirmBtn) return;
+
+    let pendingForm = null;
+
+    document.querySelectorAll('form.js-confirm-delete').forEach((form) => {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            pendingForm = form;
+            messageEl.textContent = form.dataset.confirmMessage || 'Are you sure? This cannot be undone.';
+            confirmBtn.textContent = form.dataset.confirmButtonText || 'Delete';
+            overlay.classList.add('is-open');
+        });
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        overlay.classList.remove('is-open');
+        pendingForm = null;
+    });
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.classList.remove('is-open');
+            pendingForm = null;
+        }
+    });
+    confirmBtn.addEventListener('click', () => {
+        if (pendingForm) pendingForm.submit();
+        overlay.classList.remove('is-open');
+    });
+}
+
+/* File inputs — replaces the ugly native "Seleccionar archivo" button with
+   a styled, English button + filename, on every file input site-wide. */
+function initFileInputs() {
+    document.querySelectorAll('input[type="file"]').forEach((input) => {
+        if (input.hidden || input.dataset.enhanced) return;
+        input.dataset.enhanced = 'true';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'file-input-wrapper';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn--ghost btn--sm file-input-wrapper__button';
+        button.textContent = 'Choose file';
+
+        const label = document.createElement('span');
+        label.className = 'file-input-wrapper__filename';
+        label.textContent = 'No file chosen';
+
+        input.parentNode.insertBefore(wrapper, input);
+        wrapper.appendChild(input);
+        wrapper.appendChild(button);
+        wrapper.appendChild(label);
+        input.classList.add('file-input-wrapper__native');
+
+        button.addEventListener('click', () => input.click());
+        input.addEventListener('change', () => {
+            label.textContent = input.files.length ? input.files[0].name : 'No file chosen';
+        });
     });
 }
