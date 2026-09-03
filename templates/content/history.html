@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}Kaleido — History{% endblock %}
+
+{% block content %}
+<div class="page-narrow history-page">
+    <header class="history-page__header">
+        <p class="collection-header__eyebrow">Your activity</p>
+        <h1 class="history-page__title">History</h1>
+        <p class="history-page__subtitle">Everything you've watched and viewed on Kaleido, with your video progress remembered.</p>
+    </header>
+
+    <section class="history-section">
+        {% if history_items %}
+            <div class="history-list">
+                {% for item in history_items %}
+                <article class="history-item">
+                    <a class="history-item__media" href="{% url 'content:content_detail' item.pk %}">
+                        {% if item.content_type == 'image' and item.media_file %}
+                            <img src="{{ item.media_file.url }}" alt="{{ item.title }}">
+                        {% elif item.content_type == 'video' and item.thumbnail %}
+                            <img src="{{ item.thumbnail.url }}" alt="{{ item.title }}">
+                        {% elif item.content_type == 'video' and item.media_file %}
+                            <video src="{{ item.media_file.url }}" muted preload="metadata"></video>
+                        {% elif item.content_type == 'audio' %}
+                            <span class="history-item__icon">🎵</span>
+                        {% else %}
+                            <span class="history-item__icon">📝</span>
+                        {% endif %}
+                        {% if item.content_type == 'video' and item.history_progress_percent and not item.history_completed %}
+                            <span class="history-item__progress"><span style="width: {{ item.history_progress_percent }}%"></span></span>
+                        {% endif %}
+                    </a>
+                    <div class="history-item__body">
+                        <a href="{% url 'content:content_detail' item.pk %}" class="history-item__title">{{ item.title }}</a>
+                        <a href="{% url 'users:profile' item.creator.pk %}" class="history-item__creator">{{ item.creator.display_name }}</a>
+                        <p class="history-item__meta">Viewed {{ item.history_viewed_at|timesince }} ago{% if item.content_type == 'video' and item.history_completed %} · Completed{% elif item.content_type == 'video' and item.history_progress_percent %} · {{ item.history_progress_percent }}% watched{% endif %}</p>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="history-empty">
+                <span class="history-empty__icon">◷</span>
+                <h2>Your history is empty</h2>
+                <p>Open some content and it will appear here automatically.</p>
+            </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

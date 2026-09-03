@@ -72,18 +72,22 @@
     </div>
 
     <footer class="content-card__actions">
-        <button class="action-btn" data-like-trigger>
+        <button class="action-btn {% if item.user_has_liked %}is-active{% endif %}" data-like-trigger data-like-url="{% url 'content:content_like' item.pk %}"{% if not request.user.is_authenticated %} data-login-url="{% url 'users:login' %}?next={{ request.path }}"{% endif %}>
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7.5-4.6-10-9.3C.5 8 2 4.5 5.5 4c2-.3 3.7.6 4.9 2.2C11.6 4.6 13.3 3.7 15.3 4c3.5.5 5 4 3.5 7.7-2.5 4.7-10 9.3-10 9.3z" stroke="currentColor" stroke-width="1.6"/></svg>
-            <span class="action-count">{{ item.likes_count }}</span>
+            <span class="action-count">{{ item.likes_count|default:0 }}</span>
+        </button>
+        <button class="action-btn {% if item.user_has_saved %}is-active{% endif %}" data-save-trigger data-save-url="{% url 'content:content_save' item.pk %}"{% if not request.user.is_authenticated %} data-login-url="{% url 'users:login' %}?next={{ request.path }}"{% endif %} aria-label="Save this content for later">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 4.5A2.5 2.5 0 0 1 8.5 2h7A2.5 2.5 0 0 1 18 4.5V21l-6-3.8L6 21V4.5z" stroke="currentColor" stroke-width="1.6"/></svg>
+            <span class="action-label">{% if item.user_has_saved %}Saved{% else %}Save{% endif %}</span>
         </button>
         <button class="action-btn" data-comment-trigger>
             <svg viewBox="0 0 24 24" fill="none"><path d="M21 12c0 4.4-4 8-9 8-1.1 0-2.2-.2-3.2-.5L3 21l1.6-4.4C3.6 15.2 3 13.7 3 12c0-4.4 4-8 9-8s9 3.6 9 8z" stroke="currentColor" stroke-width="1.6"/></svg>
-            <span>Comments</span>
+            <span class="comment-count">Comments{% if item.comments_count %} ({{ item.comments_count }}){% endif %}</span>
         </button>
     </footer>
 
     <div class="content-card__comments" hidden>
-        <p class="comments-empty">No comments yet. Be the first to write one.</p>
+        {% include 'includes/comments.html' with comments=item.recent_comments %}
     </div>
 
     {% if is_own_profile %}

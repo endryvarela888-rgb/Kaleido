@@ -13,7 +13,7 @@
     <nav class="sidebar-nav">
         <a href="{% url 'core:home' %}" class="sidebar-link is-active">Home</a>
         <a href="{% url 'subscriptions:my_subscriptions' %}" class="sidebar-link">Subscriptions</a>
-        <a href="#" class="sidebar-link">History</a>
-        <a href="#" class="sidebar-link">Saved for later</a>
+        <a href="{% url 'content:history' %}" class="sidebar-link">History</a>
+        <a href="{% url 'content:saved' %}" class="sidebar-link">Saved for later</a>
     </nav>
 </aside>

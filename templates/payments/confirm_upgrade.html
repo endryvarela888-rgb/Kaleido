@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Kaleido — Confirm upgrade{% endblock %}
+
+{% block content %}
+<section class="auth-card">
+    <p class="eyebrow">Subscription</p>
+    <h1 class="auth-title">Confirm your upgrade</h1>
+    <p class="auth-subtitle">
+        You're currently subscribed to <strong>{{ current_tier.name }}</strong> and are about to upgrade to
+        <strong>{{ tier.name }}</strong> for <strong>${{ tier.price }}/mo</strong>.
+    </p>
+    <p class="settings-info">
+        Your existing Stripe subscription will be changed. Stripe will apply the prorated difference for the current billing period.
+    </p>
+    <form method="post" class="auth-form">
+        {% csrf_token %}
+        <div class="auth-actions">
+            <a href="{% url 'users:profile' tier.creator_id %}" class="btn btn--ghost">Cancel</a>
+            <button type="submit" class="btn btn--primary">Confirm upgrade</button>
+        </div>
+    </form>
+</section>
+{% endblock %}

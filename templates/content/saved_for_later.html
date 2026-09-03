@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Kaleido — Saved for later{% endblock %}
+
+{% block content %}
+<div class="page-narrow saved-page">
+    <header class="saved-page__header">
+        <p class="collection-header__eyebrow">Your library</p>
+        <h1 class="saved-page__title">Saved for later</h1>
+        <p class="saved-page__subtitle">Keep content and collections you want to come back to.</p>
+    </header>
+
+    <section class="saved-section">
+        <div class="saved-section__heading">
+            <h2 class="section-heading">Saved content</h2>
+            <span class="saved-section__count">{{ saved_content|length }}</span>
+        </div>
+        {% if saved_content %}
+            <div class="content-grid">
+                {% for item in saved_content %}
+                    {% include 'includes/content_card.html' %}
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="saved-empty">
+                <span class="saved-empty__icon">🔖</span>
+                <h3>Nothing saved yet</h3>
+                <p>Use the Save button on content you want to find again later.</p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="saved-section">
+        <div class="saved-section__heading">
+            <h2 class="section-heading">Saved collections</h2>
+            <span class="saved-section__count">{{ saved_collections|length }}</span>
+        </div>
+        {% if saved_collections %}
+            <div class="collection-grid">
+                {% for collection in saved_collections %}
+                    {% include 'includes/collection_card.html' %}
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="saved-empty">
+                <span class="saved-empty__icon">📚</span>
+                <h3>No collections saved</h3>
+                <p>Save a collection and it will appear here.</p>
+            </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

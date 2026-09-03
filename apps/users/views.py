@@ -8,7 +8,8 @@ from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 import random
-from apps.content.queries import visible_content_filter
+from apps.content.models import SavedItem
+from apps.content.queries import social_queryset, visible_content_filter
 
 
 
@@ -23,7 +24,7 @@ from .models import CreatorProfile, User
 from .tokens import account_activation_token
 
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count
+from django.db.models import BooleanField, Count, Exists, OuterRef, Value
 from apps.subscriptions.models import Subscription
 from apps.content.access import annotate_lock_state
 
@@ -159,10 +160,10 @@ def profile_view(request, pk):
         tiers = profile_user.tiers.filter(is_active=True).order_by('level')
 
         all_content = list(
-            profile_user.content_items
+            social_queryset(request, profile_user.content_items
             .filter(visible_content_filter())
             .select_related('minimum_tier')
-            .order_by('-created_at')
+            .order_by('-created_at'))
         )
         annotate_lock_state(request, all_content)
 
@@ -181,7 +182,12 @@ def profile_view(request, pk):
                 visible_item_count=Count(
                     'items',
                     filter=visible_content_filter(prefix='items__'),
-                )
+                ),
+                user_has_saved=(
+                    Exists(SavedItem.objects.filter(collection_id=OuterRef('pk'), user=request.user))
+                    if request.user.is_authenticated
+                    else Value(False, output_field=BooleanField())
+                ),
             )
             .order_by('-created_at')
         )

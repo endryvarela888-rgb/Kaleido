@@ -67,9 +67,16 @@
                         {% elif my_subscription and my_subscription.tier.level > tier.level %}
                             <a href="{% url 'payments:checkout' tier.id %}" class="btn btn--ghost btn--sm">Downgrade to this</a>
                         {% else %}
-                            <a href="{% url 'payments:checkout' tier.id %}" class="btn btn--primary btn--sm">
-                                {% if my_subscription %}Upgrade{% else %}Subscribe{% endif %}
-                            </a>
+                            {% if my_subscription %}
+                                <form method="post" action="{% url 'payments:checkout' tier.id %}" class="inline-form js-confirm-action"
+                                      data-confirm-message="Upgrade from {{ my_subscription.tier.name }} to {{ tier.name }}? Your subscription will be changed and Stripe will apply the prorated difference."
+                                      data-confirm-button-text="Upgrade">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn--primary btn--sm">Upgrade</button>
+                                </form>
+                            {% else %}
+                                <a href="{% url 'payments:checkout' tier.id %}" class="btn btn--primary btn--sm">Subscribe</a>
+                            {% endif %}
                         {% endif %}
                     {% endif %}
                 </article>
@@ -149,25 +156,7 @@
 
             <div class="collection-grid" id="collectionsGrid" role="tabpanel" aria-labelledby="collectionsTab" {% if initial_library_tab != 'collections' %}hidden{% endif %}>
                 {% for collection in collections %}
-                <a href="{% url 'content:collection_detail' collection.pk %}" class="collection-card">
-                    <div class="collection-card__cover">
-                        {% if collection.cover_image %}
-                            <img src="{{ collection.cover_image.url }}" alt="Cover for {{ collection.title }}">
-                        {% else %}
-                            <span aria-hidden="true">{{ collection.title|first|upper }}</span>
-                        {% endif %}
-                    </div>
-                    <div class="collection-card__body">
-                        <h3 class="collection-card__title">{{ collection.title }}</h3>
-                        {% if collection.description %}
-                            <p class="collection-card__description">{{ collection.description }}</p>
-                        {% endif %}
-                        <div class="collection-card__meta">
-                            <span>{{ collection.visible_item_count }} item{{ collection.visible_item_count|pluralize }}</span>
-                            <span>{% if collection.minimum_tier %}{{ collection.minimum_tier.name }}{% else %}Free{% endif %}</span>
-                        </div>
-                    </div>
-                </a>
+                    {% include 'includes/collection_card.html' %}
                 {% empty %}
                     <p class="empty-state">No public collections yet.</p>
                 {% endfor %}

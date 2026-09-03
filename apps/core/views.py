@@ -5,6 +5,7 @@ from django.shortcuts import render
 from apps.content.models import Content
 from apps.users.models import User
 from apps.content.access import annotate_lock_state
+from apps.content.queries import social_queryset
 
 
 def home(request):
@@ -13,9 +14,9 @@ def home(request):
     is_search = bool(query or category_slug)
 
     if is_search:
-        content_items, discover_creators = _search(query, category_slug)
+        content_items, discover_creators = _search(request, query, category_slug)
     else:
-        content_items, discover_creators = _random_feed()
+        content_items, discover_creators = _random_feed(request)
 
     annotate_lock_state(request, content_items)
 
@@ -29,15 +30,15 @@ def home(request):
     return render(request, 'core/home.html', context)
 
 
-def _random_feed():
+def _random_feed(request):
     content_pool = list(
-        Content.objects
+        social_queryset(request, Content.objects
         .filter(is_published=True)
         .select_related(
             'creator', 'creator__creator_profile', 'creator__creator_profile__category',
             'minimum_tier',
         )
-        .order_by('-created_at')[:100]
+        .order_by('-created_at')[:100])
     )
     random.shuffle(content_pool)
     content_items = content_pool[:20]
@@ -51,7 +52,7 @@ def _random_feed():
     return content_items, discover_creators
 
 
-def _search(query, category_slug):
+def _search(request, query, category_slug):
     creators_qs = (
         User.objects
         .filter(is_creator=True)
@@ -65,12 +66,12 @@ def _search(query, category_slug):
     discover_creators = list(creators_qs[:12])
 
     content_items = list(
-        Content.objects
+        social_queryset(request, Content.objects
         .filter(is_published=True, creator__in=creators_qs)
         .select_related(
             'creator', 'creator__creator_profile', 'creator__creator_profile__category',
             'minimum_tier',
         )
-        .order_by('-created_at')[:30]
+        .order_by('-created_at')[:30])
     )
     return content_items, discover_creators

@@ -43,6 +43,15 @@ def create_checkout_session(request, tier_id):
     if tier.level == existing.tier.level:
         messages.info(request, f"You're already subscribed to {tier.name}.")
     elif tier.level > existing.tier.level:
+        if request.method != 'POST':
+            return render(
+                request,
+                'payments/confirm_upgrade.html',
+                {
+                    'tier': tier,
+                    'current_tier': existing.tier,
+                },
+            )
         services.upgrade_subscription(existing, tier)
         messages.success(request, f'Upgraded to {tier.name} — you now have full access.')
     else:

@@ -1,8 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     const inits = [
         initParticles, initSidebar, initUserMenu, initCreatorPopups,
-        initLikeButtons, initCommentToggles, initSubscriptionPopups,
-        initDeleteConfirmations, initFileInputs, initContentPlayerActions,
+        initLikeButtons, initSaveButtons, initCommentToggles, initSubscriptionPopups,
+        initDeleteConfirmations, initFileInputs, initEmojiPickers, initWatchHistory, initContentPlayerActions,
     ];
     inits.forEach((fn) => {
         try {
@@ -93,26 +93,398 @@ function initCreatorPopups() {
     });
 }
 
-/* Like buttons (visual only for now — no backend yet) ------------------------ */
-function initLikeButtons() {
+/* Persistent like buttons ---------------------------------------------------- */
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    return parts.length === 2 ? parts.pop().split(';').shift() : '';
+}
+
+async function initLikeButtons() {
     document.querySelectorAll('[data-like-trigger]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            btn.classList.toggle('is-active');
-            const countEl = btn.querySelector('.action-count');
-            if (!countEl) return;
-            const current = parseInt(countEl.textContent, 10) || 0;
-            countEl.textContent = btn.classList.contains('is-active') ? current + 1 : current - 1;
+        btn.addEventListener('click', async () => {
+            if (btn.dataset.loginUrl) {
+                window.location.href = btn.dataset.loginUrl;
+                return;
+            }
+            if (btn.dataset.loading === 'true') return;
+            btn.dataset.loading = 'true';
+
+            try {
+                const response = await fetch(btn.dataset.likeUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to like this content.');
+
+                btn.classList.toggle('is-active', data.liked);
+                const countEl = btn.querySelector('.action-count');
+                if (countEl) countEl.textContent = data.count;
+            } catch (err) {
+                console.error(err);
+            } finally {
+                btn.dataset.loading = 'false';
+            }
         });
     });
 }
 
-/* Comments section toggle ---------------------------------------------------- */
+/* Saved for later ------------------------------------------------------------ */
+async function initSaveButtons() {
+    document.querySelectorAll('[data-save-trigger]').forEach((btn) => {
+        btn.addEventListener('click', async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (btn.dataset.loginUrl) {
+                window.location.href = btn.dataset.loginUrl;
+                return;
+            }
+            if (btn.dataset.loading === 'true') return;
+            btn.dataset.loading = 'true';
+
+            try {
+                const response = await fetch(btn.dataset.saveUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to save this item.');
+
+                btn.classList.toggle('is-active', data.saved);
+                const label = btn.querySelector('.action-label, .save-label, span:last-child');
+                if (label) label.textContent = data.saved ? 'Saved' : (btn.classList.contains('collection-card__save') ? 'Save' : 'Save');
+
+                if (!data.saved && btn.closest('.saved-page')) {
+                    const card = btn.closest('.content-card, .collection-card');
+                    const section = btn.closest('.saved-section');
+                    if (card) card.remove();
+                    const countEl = section?.querySelector('.saved-section__count');
+                    if (countEl) {
+                        const count = Math.max(0, Number(countEl.textContent) - 1);
+                        countEl.textContent = count;
+                    }
+                    if (section && !section.querySelector('.content-card, .collection-card')) {
+                        const empty = document.createElement('div');
+                        empty.className = 'saved-empty';
+                        empty.innerHTML = btn.classList.contains('collection-card__save')
+                            ? '<span class="saved-empty__icon">📚</span><h3>No collections saved</h3><p>Save a collection and it will appear here.</p>'
+                            : '<span class="saved-empty__icon">🔖</span><h3>Nothing saved yet</h3><p>Use the Save button on content you want to find again later.</p>';
+                        const grid = section.querySelector('.content-grid, .collection-grid');
+                        grid?.replaceWith(empty);
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            } finally {
+                btn.dataset.loading = 'false';
+            }
+        });
+    });
+}
+
+/* Comments ------------------------------------------------------------------- */
+function renderComment(comment) {
+    const article = document.createElement('article');
+    article.className = 'comment-item';
+    article.dataset.commentId = comment.id;
+
+    let avatar;
+    if (comment.author_avatar_url) {
+        avatar = document.createElement('img');
+        avatar.className = 'avatar avatar--sm avatar--image comment-item__avatar';
+        avatar.src = comment.author_avatar_url;
+        avatar.alt = comment.author_name;
+        avatar.style.objectPosition = `${comment.author_avatar_position_x ?? 50}% ${comment.author_avatar_position_y ?? 50}%`;
+    } else {
+        avatar = document.createElement('span');
+        avatar.className = 'avatar avatar--sm comment-item__avatar';
+        avatar.textContent = comment.author_initial;
+    }
+
+    const body = document.createElement('div');
+    body.className = 'comment-item__body';
+
+    const header = document.createElement('div');
+    header.className = 'comment-item__header';
+
+    const author = document.createElement('strong');
+    author.textContent = comment.author_name;
+
+    const time = document.createElement('time');
+    time.className = 'comment-item__time';
+    time.dateTime = comment.created_at;
+    time.textContent = comment.time_ago || 'just now';
+
+    header.append(author, time);
+
+    const text = document.createElement('p');
+    text.className = 'comment-item__text';
+    text.textContent = comment.body;
+
+    body.append(header, text);
+    article.append(avatar, body);
+    return article;
+}
+
 function initCommentToggles() {
     document.querySelectorAll('[data-comment-trigger]').forEach((btn) => {
         btn.addEventListener('click', () => {
             const container = btn.closest('.content-card, .content-player');
             const panel = container?.querySelector('.content-card__comments, .content-player__comments');
-            if (panel) panel.hidden = !panel.hidden;
+            if (!panel) return;
+            panel.hidden = !panel.hidden;
+            if (!panel.hidden) {
+                const input = panel.querySelector('textarea, input');
+                if (input) input.focus();
+            }
+        });
+    });
+
+    document.querySelectorAll('[data-comment-form]').forEach((form) => {
+        const textarea = form.querySelector('[name="body"]');
+        const submit = form.querySelector('button[type="submit"]');
+        const cancel = form.querySelector('[data-comment-cancel]');
+
+        const resize = () => {
+            if (!textarea) return;
+            textarea.style.height = '40px';
+            textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
+            textarea.style.overflowY = textarea.scrollHeight > 150 ? 'auto' : 'hidden';
+        };
+
+        const updateSubmitState = () => {
+            if (submit) submit.disabled = !textarea?.value.trim();
+        };
+
+        textarea?.addEventListener('input', () => {
+            resize();
+            updateSubmitState();
+        });
+        textarea?.addEventListener('focus', resize);
+
+        cancel?.addEventListener('click', () => {
+            if (!textarea) return;
+            textarea.value = '';
+            resize();
+            updateSubmitState();
+            textarea.blur();
+        });
+
+        resize();
+        updateSubmitState();
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const body = textarea?.value.trim();
+            if (!body || form.dataset.loading === 'true') return;
+
+            form.dataset.loading = 'true';
+            if (submit) submit.disabled = true;
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: new URLSearchParams({ body }),
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to post comment.');
+
+                const panel = form.closest('.content-card__comments, .content-player__comments');
+                const list = panel?.querySelector('.comments-list');
+                const empty = panel?.querySelector('.comments-empty');
+                if (empty) empty.remove();
+                if (list) list.appendChild(renderComment(data));
+
+                const container = form.closest('.content-card, .content-player');
+                const countEl = container?.querySelector('.comment-count');
+                if (countEl && data.count !== undefined) {
+                    countEl.textContent = `Comments (${data.count})`;
+                }
+
+                textarea.value = '';
+                resize();
+            } catch (err) {
+                console.error(err);
+            } finally {
+                form.dataset.loading = 'false';
+                updateSubmitState();
+            }
+        });
+    });
+}
+
+/* Emoji picker -------------------------------------------------------------- */
+const KALEIDO_EMOJIS = [
+    '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃',
+    '😉', '😌', '😍', '🥰', '😘', '😎', '🤩', '🥳', '😏', '😅', '🤔', '🫡',
+    '😮', '😯', '😲', '🥺', '😭', '😤', '😡', '🤯', '😱', '😴', '🤗', '🤭',
+    '🤫', '🫠', '🤪', '😈', '👻', '💀', '☠️', '👽', '🤖', '💜', '🖤', '🤍',
+    '❤️', '🧡', '💛', '💚', '💙', '🩵', '🩷', '💫', '✨', '🔥', '⭐', '🌙',
+    '🌟', '💥', '🎉', '🎊', '🎁', '🎮', '🎵', '🎶', '🎨', '📸', '💡', '🚀',
+    '👍', '👎', '👏', '🙌', '🤝', '🙏', '💪', '👀', '👋', '❤️‍🔥', '💯', '✅',
+    '❌', '⚡', '💎', '🏆', '🌈', '☀️', '🌧️', '🍀', '🌸', '🌹', '🍕', '☕',
+];
+
+function initEmojiPickers() {
+    const fields = Array.from(document.querySelectorAll('textarea, input.field-input'))
+        .filter((field) => {
+            if (field.disabled || field.readOnly) return false;
+            if (field.tagName === 'INPUT' && field.type !== 'text') return false;
+            if (field.tagName === 'INPUT') {
+                const haystack = `${field.id} ${field.name} ${field.placeholder}`.toLowerCase();
+                if (haystack.includes('search') || field.name === 'q') return false;
+            }
+            return true;
+        });
+
+    if (!fields.length) return;
+
+    const closeAll = (except = null) => {
+        document.querySelectorAll('.emoji-picker.is-open').forEach((picker) => {
+            if (picker === except) return;
+            picker.classList.remove('is-open');
+            const trigger = picker.parentElement?.querySelector('.emoji-input__trigger');
+            trigger?.setAttribute('aria-expanded', 'false');
+        });
+    };
+
+    fields.forEach((field) => {
+        if (field.dataset.emojiReady === 'true') return;
+        field.dataset.emojiReady = 'true';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'emoji-input';
+        field.parentNode.insertBefore(wrapper, field);
+        wrapper.appendChild(field);
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'emoji-input__trigger';
+        button.setAttribute('aria-label', 'Add emoji');
+        button.setAttribute('aria-expanded', 'false');
+        button.textContent = '😊';
+
+        const picker = document.createElement('div');
+        picker.className = 'emoji-picker';
+        picker.setAttribute('role', 'dialog');
+        picker.setAttribute('aria-label', 'Emoji picker');
+
+        const header = document.createElement('div');
+        header.className = 'emoji-picker__header';
+        header.textContent = 'Add an emoji';
+        picker.appendChild(header);
+
+        const grid = document.createElement('div');
+        grid.className = 'emoji-picker__grid';
+        KALEIDO_EMOJIS.forEach((emoji) => {
+            const emojiButton = document.createElement('button');
+            emojiButton.type = 'button';
+            emojiButton.className = 'emoji-picker__item';
+            emojiButton.textContent = emoji;
+            emojiButton.setAttribute('aria-label', `Insert ${emoji}`);
+            emojiButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const start = field.selectionStart ?? field.value.length;
+                const end = field.selectionEnd ?? start;
+                field.setRangeText(emoji, start, end, 'end');
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+                field.focus();
+            });
+            grid.appendChild(emojiButton);
+        });
+        picker.appendChild(grid);
+
+        wrapper.append(button, picker);
+
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const willOpen = !picker.classList.contains('is-open');
+            closeAll(picker);
+            picker.classList.toggle('is-open', willOpen);
+            button.setAttribute('aria-expanded', String(willOpen));
+            if (willOpen) field.focus();
+        });
+
+        picker.addEventListener('click', (event) => event.stopPropagation());
+    });
+
+    document.addEventListener('click', () => closeAll());
+}
+
+/* Watch history + video resume ---------------------------------------------- */
+function initWatchHistory() {
+    document.querySelectorAll('[data-history-video]').forEach((video) => {
+        const url = video.dataset.historyUrl;
+        if (!url) return;
+
+        const savedPosition = Number.parseFloat(video.dataset.resumePosition || '0');
+        let lastSavedAt = 0;
+        let saving = false;
+        let hasMetadata = false;
+
+        const saveProgress = async (completed = false, keepalive = false) => {
+            if (!hasMetadata || saving) return;
+            const position = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+            const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : '';
+            const body = new URLSearchParams({
+                csrfmiddlewaretoken: getCookie('csrftoken'),
+                position: String(position),
+                duration: String(duration),
+                completed: completed ? 'true' : 'false',
+            });
+
+            saving = true;
+            try {
+                await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                    },
+                    body,
+                    keepalive,
+                });
+                lastSavedAt = Date.now();
+            } catch (err) {
+                if (!keepalive) console.error('Unable to save watch progress:', err);
+            } finally {
+                saving = false;
+            }
+        };
+
+        video.addEventListener('loadedmetadata', () => {
+            hasMetadata = true;
+            if (savedPosition > 0 && Number.isFinite(video.duration) && savedPosition < Math.max(video.duration - 2, 0)) {
+                try {
+                    video.currentTime = savedPosition;
+                } catch {
+                    // Some browsers may reject seeking before the media is ready.
+                }
+            }
+        }, { once: true });
+
+        video.addEventListener('timeupdate', () => {
+            if (!hasMetadata || video.paused) return;
+            if (Date.now() - lastSavedAt >= 5000) saveProgress(false);
+        });
+
+        video.addEventListener('pause', () => saveProgress(false));
+        video.addEventListener('ended', () => saveProgress(true));
+        window.addEventListener('beforeunload', () => saveProgress(false, true));
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') saveProgress(false, true);
         });
     });
 }
@@ -171,7 +543,7 @@ function initDeleteConfirmations() {
 
     let pendingForm = null;
 
-    document.querySelectorAll('form.js-confirm-delete').forEach((form) => {
+    document.querySelectorAll('form.js-confirm-delete, form.js-confirm-action').forEach((form) => {
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             pendingForm = form;

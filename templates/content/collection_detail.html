@@ -19,6 +19,12 @@
                 <span class="collection-header__tier">Free</span>
             {% endif %}
         </div>
+        <div class="collection-header__actions">
+            <button type="button" class="player-action {% if collection.user_has_saved %}is-active{% endif %}" data-save-trigger data-save-url="{% url 'content:collection_save' collection.pk %}"{% if not request.user.is_authenticated %} data-login-url="{% url 'users:login' %}?next={{ request.path }}"{% endif %}>
+                <svg viewBox="0 0 24 24" fill="none"><path d="M6 4.5A2.5 2.5 0 0 1 8.5 2h7A2.5 2.5 0 0 1 18 4.5V21l-6-3.8L6 21V4.5z" stroke="currentColor" stroke-width="1.6"/></svg>
+                <span>{% if collection.user_has_saved %}Saved{% else %}Save for later{% endif %}</span>
+            </button>
+        </div>
         {% if collection.description %}
             <p class="collection-header__description">{{ collection.description }}</p>
         {% endif %}

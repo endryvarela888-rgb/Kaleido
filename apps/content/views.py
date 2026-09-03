@@ -1,38 +1,44 @@
 from django.contrib import messages
-from django.db.models import Count
+from django.db.models import Count, Exists, OuterRef, Subquery, Value
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 
 from apps.users.decorators import creator_required
 
 from .forms import ContentForm, CollectionForm
-from .models import Content, Collection
+from .models import Comment, Content, ContentHistory, ContentLike, Collection, SavedItem
 from .access import annotate_lock_state
-from .queries import visible_content_filter
+from .queries import social_queryset, visible_content_filter
 
 
 def public_collection_detail(request, pk):
     """Show a creator's public collection and its currently visible items."""
-    collection = get_object_or_404(
-        Collection.objects.select_related(
-            'creator',
-            'creator__creator_profile',
-            'creator__creator_profile__category',
-            'minimum_tier',
-        ),
-        pk=pk,
+    collection_qs = Collection.objects.select_related(
+        'creator',
+        'creator__creator_profile',
+        'creator__creator_profile__category',
+        'minimum_tier',
     )
+    if request.user.is_authenticated:
+        collection_qs = collection_qs.annotate(
+            user_has_saved=Exists(
+                SavedItem.objects.filter(collection_id=OuterRef('pk'), user=request.user)
+            )
+        )
+    collection = get_object_or_404(collection_qs, pk=pk)
 
     content_items = list(
-        collection.items.filter(visible_content_filter())
+        social_queryset(request, collection.items.filter(visible_content_filter())
         .select_related(
             'creator',
             'creator__creator_profile',
             'creator__creator_profile__category',
             'minimum_tier',
         )
-        .order_by('order', '-created_at')
+        .order_by('order', '-created_at'))
     )
     annotate_lock_state(request, content_items)
 
@@ -49,18 +55,247 @@ def public_collection_detail(request, pk):
 def public_content_detail(request, pk):
     """Render one public content item in a distraction-free player view."""
     item = get_object_or_404(
-        Content.objects.filter(visible_content_filter()).select_related(
-            'creator',
-            'creator__creator_profile',
-            'creator__creator_profile__category',
-            'minimum_tier',
-            'collection',
+        social_queryset(
+            request,
+            Content.objects.filter(visible_content_filter()).select_related(
+                'creator',
+                'creator__creator_profile',
+                'creator__creator_profile__category',
+                'minimum_tier',
+                'collection',
+            ),
         ),
         pk=pk,
     )
     annotate_lock_state(request, [item])
 
-    return render(request, 'content/content_detail.html', {'item': item})
+    resume_position = 0
+    if request.user.is_authenticated and not item.is_locked:
+        history, _ = ContentHistory.objects.get_or_create(
+            user=request.user,
+            content=item,
+        )
+        resume_position = history.progress_seconds if not history.completed else 0
+
+    return render(
+        request,
+        'content/content_detail.html',
+        {
+            'item': item,
+            'resume_position': resume_position,
+        },
+    )
+
+
+@login_required
+@require_POST
+def update_content_history(request, pk):
+    """Persist video playback progress without affecting the public player."""
+    content = get_object_or_404(
+        Content.objects.filter(visible_content_filter()).select_related('minimum_tier'),
+        pk=pk,
+    )
+    annotate_lock_state(request, [content])
+    if content.is_locked:
+        return JsonResponse({'error': 'Subscribe to this creator to watch this content.'}, status=403)
+
+    try:
+        position = max(0.0, float(request.POST.get('position', 0)))
+    except (TypeError, ValueError):
+        position = 0.0
+
+    try:
+        duration_raw = request.POST.get('duration', '')
+        duration = max(0.0, float(duration_raw)) if duration_raw else None
+    except (TypeError, ValueError):
+        duration = None
+
+    completed = request.POST.get('completed') == 'true'
+    if duration and position >= max(duration - 2, 0):
+        completed = True
+
+    history, _ = ContentHistory.objects.get_or_create(
+        user=request.user,
+        content=content,
+    )
+    history.progress_seconds = position
+    history.duration_seconds = duration
+    history.completed = completed
+    history.save(update_fields=['last_viewed_at', 'progress_seconds', 'duration_seconds', 'completed'])
+
+    return JsonResponse({'saved': True, 'completed': completed})
+
+
+@login_required
+@require_POST
+def toggle_content_save(request, pk):
+    content = get_object_or_404(
+        Content.objects.filter(visible_content_filter()),
+        pk=pk,
+    )
+    saved, created = SavedItem.objects.get_or_create(
+        user=request.user,
+        content=content,
+    )
+    if not created:
+        saved.delete()
+    return JsonResponse({'saved': created})
+
+
+@login_required
+@require_POST
+def toggle_collection_save(request, pk):
+    collection = get_object_or_404(Collection, pk=pk)
+    saved, created = SavedItem.objects.get_or_create(
+        user=request.user,
+        collection=collection,
+    )
+    if not created:
+        saved.delete()
+    return JsonResponse({'saved': created})
+
+
+@login_required
+def history(request):
+    entries = (
+        ContentHistory.objects
+        .filter(user=request.user, content__isnull=False)
+        .select_related(
+            'content',
+            'content__creator',
+            'content__creator__creator_profile',
+            'content__creator__creator_profile__category',
+            'content__minimum_tier',
+            'content__collection',
+        )
+        .filter(content__in=Content.objects.filter(visible_content_filter()))
+        .order_by('-last_viewed_at')
+    )
+
+    history_items = []
+    for entry in entries:
+        item = entry.content
+        item.history_viewed_at = entry.last_viewed_at
+        item.history_progress_seconds = entry.progress_seconds
+        item.history_duration_seconds = entry.duration_seconds
+        item.history_completed = entry.completed
+        if entry.duration_seconds and entry.duration_seconds > 0:
+            item.history_progress_percent = min(100, round((entry.progress_seconds / entry.duration_seconds) * 100))
+        else:
+            item.history_progress_percent = 0
+        history_items.append(item)
+
+    annotate_lock_state(request, history_items)
+    return render(request, 'content/history.html', {'history_items': history_items})
+
+
+@login_required
+def saved_for_later(request):
+    saved_content = SavedItem.objects.filter(
+        user=request.user, content__isnull=False
+    )
+    saved_collections = SavedItem.objects.filter(
+        user=request.user, collection__isnull=False
+    )
+
+    content_items = list(
+        social_queryset(
+            request,
+            Content.objects.filter(
+                visible_content_filter(),
+                id__in=saved_content.values('content_id'),
+            ).select_related(
+                'creator',
+                'creator__creator_profile',
+                'creator__creator_profile__category',
+                'minimum_tier',
+                'collection',
+            ).annotate(
+                saved_at=Subquery(
+                    saved_content.filter(content_id=OuterRef('pk')).values('created_at')[:1]
+                )
+            ).order_by('-saved_at'),
+        )
+    )
+    annotate_lock_state(request, content_items)
+
+    collections = list(
+        Collection.objects.filter(
+            id__in=saved_collections.values('collection_id')
+        ).select_related(
+            'creator',
+            'creator__creator_profile',
+            'creator__creator_profile__category',
+            'minimum_tier',
+        ).annotate(
+            user_has_saved=Value(True),
+            saved_at=Subquery(
+                saved_collections.filter(collection_id=OuterRef('pk')).values('created_at')[:1]
+            ),
+            visible_item_count=Count(
+                'items',
+                filter=visible_content_filter(prefix='items__'),
+            ),
+        ).order_by('-saved_at')
+    )
+
+    return render(
+        request,
+        'content/saved_for_later.html',
+        {
+            'saved_content': content_items,
+            'saved_collections': collections,
+        },
+    )
+
+
+@login_required
+@require_POST
+def toggle_like(request, pk):
+    content = get_object_or_404(
+        Content.objects.filter(visible_content_filter()).select_related('minimum_tier'),
+        pk=pk,
+    )
+    annotate_lock_state(request, [content])
+    if content.is_locked:
+        return JsonResponse({'error': 'Subscribe to this creator to interact with this content.'}, status=403)
+
+    like, created = ContentLike.objects.get_or_create(content=content, user=request.user)
+    if not created:
+        like.delete()
+    return JsonResponse({
+        'liked': created,
+        'count': ContentLike.objects.filter(content=content).count(),
+    })
+
+
+@login_required
+@require_POST
+def create_comment(request, pk):
+    content = get_object_or_404(
+        Content.objects.filter(visible_content_filter()).select_related('minimum_tier'),
+        pk=pk,
+    )
+    annotate_lock_state(request, [content])
+    if content.is_locked:
+        return JsonResponse({'error': 'Subscribe to this creator to comment on this content.'}, status=403)
+
+    body = request.POST.get('body', '').strip()
+    if not body:
+        return JsonResponse({'error': 'Comment cannot be empty.'}, status=400)
+    comment = Comment.objects.create(content=content, author=request.user, body=body)
+    return JsonResponse({
+        'id': comment.id,
+        'body': comment.body,
+        'author_name': comment.author.display_name,
+        'author_initial': comment.author.display_name[:1].upper(),
+        'author_avatar_url': comment.author.avatar.url if comment.author.avatar else '',
+        'author_avatar_position_x': comment.author.avatar_position_x,
+        'author_avatar_position_y': comment.author.avatar_position_y,
+        'created_at': comment.created_at.isoformat(),
+        'time_ago': 'just now',
+        'count': Comment.objects.filter(content=content).count(),
+    })
 
 
 @creator_required
