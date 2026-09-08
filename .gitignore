@@ -19,3 +19,13 @@ db.sqlite3
 # OS
 .DS_Store
 Thumbs.db
+
+#private files
+/update/
+
+#front
+node_modules/
+dist/
+
+backend/media/
+*.zip
