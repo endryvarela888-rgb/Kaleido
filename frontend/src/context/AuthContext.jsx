@@ -8,8 +8,6 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // On first load, if there's a token saved from a previous session,
-  // try to restore who's logged in before rendering protected routes.
   useEffect(() => {
     const { access } = getTokens()
     if (!access) {
@@ -30,13 +28,20 @@ export function AuthProvider({ children }) {
     return me
   }
 
-  // Activation exchanges the emailed token for a JWT pair and returns the
-  // user in the same call, so unlike login() there's no need for a
-  // separate fetchMe() round trip.
   async function activate(uid, token) {
     const { user: activatedUser } = await authApi.activateAccount(uid, token)
     setUser(activatedUser)
     return activatedUser
+  }
+
+  // Re-fetches /me/ and updates the shared user object — call this after
+  // any profile edit (avatar, name, bio) so every component reading
+  // useAuth().user (navbar, dashboard, etc.) sees the fresh data without
+  // a full page reload.
+  async function refreshUser() {
+    const me = await authApi.fetchMe()
+    setUser(me)
+    return me
   }
 
   function logout() {
@@ -48,7 +53,7 @@ export function AuthProvider({ children }) {
     return authApi.signup(payload)
   }
 
-  const value = { user, loading, login, logout, signup, activate, isAuthenticated: !!user }
+  const value = { user, loading, login, logout, signup, activate, refreshUser, isAuthenticated: !!user }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
