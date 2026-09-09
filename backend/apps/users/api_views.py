@@ -1,3 +1,5 @@
+import random
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
@@ -20,7 +22,7 @@ from apps.tiers.models import Tier
 from apps.content.serializers import CollectionSerializer, ContentSerializer
 
 from .models import CreatorProfile
-from .serializers import SignupSerializer, UserSerializer
+from .serializers import CreatorSummarySerializer, SignupSerializer, UserSerializer
 from .tokens import account_activation_token
 
 User = get_user_model()
@@ -50,6 +52,22 @@ class SignupView(APIView):
             {'detail': 'Check your email to activate your account.'},
             status=status.HTTP_201_CREATED,
         )
+
+
+class DiscoverCreatorsView(APIView):
+    """Random sample of creators for the home sidebar — mirrors the old
+    Django-template version's `User.objects.filter(is_creator=True)...
+    .order_by('?')[:6]`."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        creators = list(
+            User.objects.filter(is_creator=True)
+            .select_related('creator_profile', 'creator_profile__category')
+        )
+        sample = random.sample(creators, min(len(creators), 6))
+        return Response(CreatorSummarySerializer(sample, many=True, context={'request': request}).data)
 
 
 class CreatorProfileView(APIView):

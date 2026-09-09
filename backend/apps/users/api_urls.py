@@ -10,6 +10,7 @@ urlpatterns = [
     path('me/', api_views.MeView.as_view(), name='me'),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('creators/discover/', api_views.DiscoverCreatorsView.as_view(), name='discover_creators'),
     path('creators/<int:pk>/', api_views.CreatorProfileView.as_view(), name='creator_profile'),
     path('me/become-creator/', api_views.BecomeCreatorView.as_view(), name='become_creator'),
     path('me/change-password/', api_views.ChangePasswordView.as_view(), name='change_password'),

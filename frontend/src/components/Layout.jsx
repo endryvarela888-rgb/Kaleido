@@ -1,10 +1,11 @@
 import { Outlet } from 'react-router-dom'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Navbar from './Navbar'
 import Sidebar from './Sidebar'
 
 export default function Layout() {
   const particleFieldRef = useRef(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     const field = particleFieldRef.current
@@ -25,8 +26,8 @@ export default function Layout() {
   return (
     <>
       <div className="particle-field" ref={particleFieldRef}></div>
-      <Sidebar />
-      <Navbar />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Navbar onMenuClick={() => setSidebarOpen(true)} />
       <main className="page-main">
         <Outlet />
       </main>

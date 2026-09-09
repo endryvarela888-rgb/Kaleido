@@ -1,12 +1,9 @@
-import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 
-export default function Sidebar() {
-  const [open, setOpen] = useState(false)
-
+export default function Sidebar({ open, onClose }) {
   return (
     <>
-      <div className={`sidebar-overlay ${open ? 'is-open' : ''}`} onClick={() => setOpen(false)} />
+      <div className={`sidebar-overlay ${open ? 'is-open' : ''}`} onClick={onClose} />
       <aside className={`sidebar ${open ? 'is-open' : ''}`}>
         <div className="sidebar-brand">
           <span className="sigil-mark" aria-hidden="true">
@@ -19,16 +16,12 @@ export default function Sidebar() {
           <span className="brand-name">Kaleido</span>
         </div>
         <nav className="sidebar-nav">
-          <NavLink to="/" className="sidebar-link" onClick={() => setOpen(false)}>Home</NavLink>
-          <NavLink to="/subscriptions" className="sidebar-link" onClick={() => setOpen(false)}>Subscriptions</NavLink>
-          <NavLink to="/history" className="sidebar-link" onClick={() => setOpen(false)}>History</NavLink>
-          <NavLink to="/saved" className="sidebar-link" onClick={() => setOpen(false)}>Saved for later</NavLink>
-          <NavLink to="/creator" className="sidebar-link" onClick={() => setOpen(false)}>Creator dashboard</NavLink>
+          <NavLink to="/" className="sidebar-link" onClick={onClose}>Home</NavLink>
+          <NavLink to="/subscriptions" className="sidebar-link" onClick={onClose}>Subscriptions</NavLink>
+          <NavLink to="/history" className="sidebar-link" onClick={onClose}>History</NavLink>
+          <NavLink to="/saved" className="sidebar-link" onClick={onClose}>Saved for later</NavLink>
         </nav>
       </aside>
-      <button className="icon-btn sidebar-toggle-fixed" onClick={() => setOpen(true)} aria-label="Open menu">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-      </button>
     </>
   )
 }

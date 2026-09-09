@@ -24,6 +24,18 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'email', 'is_creator']
 
 
+class CreatorSummarySerializer(serializers.ModelSerializer):
+    """Lighter than UserSerializer — no email — for public listings like
+    the 'Discover creators' sidebar, where exposing everyone's email
+    would be an unnecessary privacy leak."""
+
+    creator_profile = CreatorProfileSerializer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'display_name', 'avatar', 'avatar_position_x', 'avatar_position_y', 'creator_profile']
+
+
 class SignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
 
