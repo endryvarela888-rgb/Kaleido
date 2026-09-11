@@ -64,6 +64,11 @@ export async function deleteCreatorContent(id) {
   await client.delete(`/content/creator/content/${id}/`)
 }
 
+export async function updateCreatorContent(id, payload) {
+  const { data } = await client.patch(`/content/creator/content/${id}/`, payload)
+  return data
+}
+
 export async function fetchCreatorCollections() {
   const { data } = await client.get('/content/creator/collections/')
   return data

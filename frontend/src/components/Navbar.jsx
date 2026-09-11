@@ -27,7 +27,16 @@ export default function Navbar({ onMenuClick }) {
         {user ? (
           <>
             <button className="avatar-btn" onClick={() => setMenuOpen((v) => !v)} aria-label="Open user menu">
-              <span className="avatar avatar--sm">{user.display_name?.[0]?.toUpperCase()}</span>
+              {user.avatar ? (
+                <img
+                  className="avatar avatar--sm avatar--image"
+                  src={user.avatar}
+                  alt={user.display_name}
+                  style={{ objectPosition: `${user.avatar_position_x}% ${user.avatar_position_y}%` }}
+                />
+              ) : (
+                <span className="avatar avatar--sm">{user.display_name?.[0]?.toUpperCase()}</span>
+              )}
             </button>
             <div className={`dropdown-menu ${menuOpen ? 'is-open' : ''}`}>
               <Link to={`/profile/${user.id}`} onClick={() => setMenuOpen(false)}>Profile</Link>

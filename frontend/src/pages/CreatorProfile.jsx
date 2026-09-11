@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import { fetchCreator } from '../api/content'
+import { fetchCreator, updateCreatorContent } from '../api/content'
 import { updateMe } from '../api/auth'
 import { checkout } from '../api/payments'
 import ContentCard from '../components/ContentCard'
 import { useAuth } from '../hooks/useAuth'
+
+const MAX_FEATURED = 3
 
 function AvatarEditor({ creator, onSaved }) {
   const [file, setFile] = useState(null)
@@ -16,13 +18,8 @@ function AvatarEditor({ creator, onSaved }) {
   const fileInputRef = useRef(null)
   const objectUrlRef = useRef(null)
 
-  // Dragging is tracked with window-level listeners (not just on the
-  // preview div) so the drag keeps working even if the cursor slips
-  // outside the circle mid-drag — a plain onMouseMove on the div alone
-  // would "lose" the drag the instant the mouse leaves its bounds.
   useEffect(() => {
     if (!isDragging) return
-
     function handleMove(event) {
       const rect = previewRef.current.getBoundingClientRect()
       const x = Math.max(0, Math.min(100, Math.round(((event.clientX - rect.left) / rect.width) * 100)))
@@ -30,10 +27,7 @@ function AvatarEditor({ creator, onSaved }) {
       setPosX(x)
       setPosY(y)
     }
-    function handleUp() {
-      setIsDragging(false)
-    }
-
+    function handleUp() { setIsDragging(false) }
     window.addEventListener('mousemove', handleMove)
     window.addEventListener('mouseup', handleUp)
     return () => {
@@ -90,12 +84,57 @@ function AvatarEditor({ creator, onSaved }) {
   )
 }
 
+function FeaturedPicker({ content, queryClient, creatorId }) {
+  const toggleFeatured = useMutation({
+    mutationFn: ({ id, is_featured }) => updateCreatorContent(id, { is_featured }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['creator', String(creatorId)] }),
+  })
+
+  const featuredCount = content.filter((item) => item.is_featured).length
+
+  return (
+    <section className="featured-picker">
+      <h2 className="section-heading">Choose featured content</h2>
+      <p className="settings-info">Pick up to {MAX_FEATURED} pieces to showcase at the top of your profile.</p>
+      <div className="featured-picker__strip">
+        {content.map((item) => (
+          <label key={item.id} className="featured-pick-card">
+            <input
+              type="checkbox"
+              hidden
+              checked={item.is_featured}
+              disabled={!item.is_featured && featuredCount >= MAX_FEATURED}
+              onChange={(event) => toggleFeatured.mutate({ id: item.id, is_featured: event.target.checked })}
+            />
+            <div className="featured-pick-card__thumb">
+              {item.content_type === 'image' && item.media_file ? (
+                <img src={item.media_file} alt="" />
+              ) : (
+                <span className="featured-pick-card__icon">
+                  {item.content_type === 'video' ? '🎬' : item.content_type === 'audio' ? '🎵' : '📝'}
+                </span>
+              )}
+              <span className="featured-pick-card__check">✓</span>
+            </div>
+            <p className="featured-pick-card__title">{item.title}</p>
+          </label>
+        ))}
+      </div>
+      {toggleFeatured.isError && (
+        <p className="form-error">{toggleFeatured.error.response?.data?.is_featured?.[0] || 'Unable to update.'}</p>
+      )}
+    </section>
+  )
+}
 export default function CreatorProfile() {
   const { id } = useParams()
   const { user, isAuthenticated, refreshUser } = useAuth()
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
+  const checkoutStatus = searchParams.get('checkout')
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ display_name: '', bio: '' })
+  const [activeTab, setActiveTab] = useState('content')
 
   const { data, isLoading, isError } = useQuery({ queryKey: ['creator', id], queryFn: () => fetchCreator(id) })
 
@@ -130,9 +169,20 @@ export default function CreatorProfile() {
 
   const { creator, tiers, content, collections = [], subscription } = data
   const isOwnProfile = isAuthenticated && user.id === creator.id
+  const featuredItems = content.filter((item) => item.is_featured).slice(0, MAX_FEATURED)
 
   return (
+    <div className="page-narrow">
     <section>
+      {checkoutStatus === 'success' && (
+        <p className="message message--success">
+          Payment received — your subscription may take a few seconds to activate.
+        </p>
+      )}
+      {checkoutStatus === 'cancelled' && (
+        <p className="message message--info">Checkout canceled — no charge was made.</p>
+      )}
+
       <header className="profile-header">
         {isOwnProfile && editing ? (
           <AvatarEditor creator={creator} onSaved={handleAvatarSaved} />
@@ -156,10 +206,7 @@ export default function CreatorProfile() {
         )}
 
         {editing ? (
-          <form
-            className="profile-edit-form"
-            onSubmit={(event) => { event.preventDefault(); saveProfile.mutate() }}
-          >
+          <form className="profile-edit-form" onSubmit={(event) => { event.preventDefault(); saveProfile.mutate() }}>
             <label>
               Display name
               <input
@@ -205,16 +252,18 @@ export default function CreatorProfile() {
               <p className="tier-card__name">{tier.name}</p>
               <p className="tier-card__price">${tier.price}/mo</p>
               <p className="tier-card__description">{tier.description}</p>
-              {subscription?.tier_id === tier.id ? (
-                <span className="btn btn--ghost btn--sm tier-card__current">Current plan</span>
-              ) : (
-                <button
-                  className="btn btn--primary btn--sm"
-                  disabled={!isAuthenticated || membership.isPending}
-                  onClick={() => membership.mutate(tier.id)}
-                >
-                  {isAuthenticated ? 'Choose this tier' : 'Log in to subscribe'}
-                </button>
+              {!isOwnProfile && (
+                subscription?.tier_id === tier.id ? (
+                  <span className="btn btn--ghost btn--sm tier-card__current">Current plan</span>
+                ) : (
+                  <button
+                    className="btn btn--primary btn--sm"
+                    disabled={!isAuthenticated || membership.isPending}
+                    onClick={() => membership.mutate(tier.id)}
+                  >
+                    {isAuthenticated ? 'Choose this tier' : 'Log in to subscribe'}
+                  </button>
+                )
               )}
             </article>
           ))}
@@ -222,9 +271,43 @@ export default function CreatorProfile() {
         {membership.isError && <p className="form-error">{membership.error.response?.data?.detail || 'Unable to start checkout.'}</p>}
       </section>
 
-      {!!collections.length && (
+      {isOwnProfile && editing && (
+        <FeaturedPicker content={content} queryClient={queryClient} creatorId={creator.id} />
+      )}
+
+      {!!featuredItems.length && (
         <section className="profile-content">
-          <h2 className="section-heading">Collections</h2>
+          <h2 className="section-heading">Featured</h2>
+          <div className="content-grid">
+            {featuredItems.map((item) => <ContentCard key={item.id} item={item} />)}
+          </div>
+        </section>
+      )}
+
+      <section className="profile-library">
+        <div className="profile-library__tabs">
+          <button
+            type="button"
+            className={`profile-library__tab ${activeTab === 'content' ? 'profile-library__tab--active' : ''}`}
+            onClick={() => setActiveTab('content')}
+          >
+            Content
+          </button>
+          <button
+            type="button"
+            className={`profile-library__tab ${activeTab === 'collections' ? 'profile-library__tab--active' : ''}`}
+            onClick={() => setActiveTab('collections')}
+          >
+            Collections
+          </button>
+        </div>
+
+        {activeTab === 'content' ? (
+          <div className="content-grid">
+            {content.map((item) => <ContentCard key={item.id} item={item} />)}
+            {content.length === 0 && <p className="empty-state">No content yet.</p>}
+          </div>
+        ) : (
           <div className="collection-grid">
             {collections.map((collection) => (
               <Link to={`/collections/${collection.id}`} key={collection.id} className="collection-card">
@@ -235,16 +318,11 @@ export default function CreatorProfile() {
                 </div>
               </Link>
             ))}
+            {collections.length === 0 && <p className="empty-state">No collections yet.</p>}
           </div>
-        </section>
-      )}
-
-      <section className="profile-content">
-        <h2 className="section-heading">Content</h2>
-        <div className="content-grid">
-          {content.map((item) => <ContentCard key={item.id} item={item} />)}
-        </div>
+        )}
       </section>
     </section>
+    </div>
   )
 }

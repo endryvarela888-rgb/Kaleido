@@ -37,7 +37,7 @@ class ContentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'creator', 'content_type', 'title', 'description',
             'media_file', 'thumbnail', 'minimum_tier', 'collection_id', 'is_locked',
-            'like_count', 'user_has_liked', 'comment_count', 'created_at',
+            'like_count', 'user_has_liked', 'comment_count', 'created_at', 'is_featured',
         ]
 
     def get_is_locked(self, obj):
@@ -78,7 +78,7 @@ class CreatorContentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Content
-        fields = ['id', 'title', 'description', 'media_file', 'thumbnail', 'collection', 'minimum_tier', 'publish_at', 'is_published', 'published_at']
+        fields = ['id', 'title', 'description', 'media_file', 'thumbnail', 'collection', 'minimum_tier', 'publish_at', 'is_published', 'published_at', 'is_featured']
         read_only_fields = ['id', 'is_published', 'published_at']
 
     def validate(self, attrs):
@@ -92,6 +92,14 @@ class CreatorContentSerializer(serializers.ModelSerializer):
         publish_at = attrs.get('publish_at')
         if publish_at and publish_at <= timezone.now():
             raise serializers.ValidationError({'publish_at': 'The scheduled time must be in the future.'})
+
+        if attrs.get('is_featured'):
+            already_featured = Content.objects.filter(creator=user, is_featured=True)
+            if self.instance:
+                already_featured = already_featured.exclude(pk=self.instance.pk)
+            if already_featured.count() >= 3:
+                raise serializers.ValidationError({'is_featured': 'You can only feature up to 3 pieces of content.'})
+
         return attrs
 
     def _apply_access_and_type(self, instance, validated_data):

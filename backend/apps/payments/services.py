@@ -38,10 +38,8 @@ def create_checkout_session(request, user, tier):
         mode='subscription',
         line_items=[{'price': tier.stripe_price_id, 'quantity': 1}],
         subscription_data=subscription_data,
-        success_url=request.build_absolute_uri('/payments/checkout/success/')
-        + '?session_id={CHECKOUT_SESSION_ID}',
-        cancel_url=request.build_absolute_uri('/payments/checkout/cancel/')
-        + '?session_id={CHECKOUT_SESSION_ID}',
+        success_url=f'{settings.FRONTEND_URL}/profile/{tier.creator_id}?checkout=success',
+        cancel_url=f'{settings.FRONTEND_URL}/profile/{tier.creator_id}?checkout=cancelled',
         metadata={
             'subscriber_id': user.id,
             'creator_id': tier.creator_id,

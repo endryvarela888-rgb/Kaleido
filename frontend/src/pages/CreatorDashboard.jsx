@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { useState } from 'react'
 import {
   createCreatorCollection,
@@ -9,23 +10,288 @@ import {
   fetchCreatorContent,
 } from '../api/content'
 import { createTier, deleteTier, fetchTiers } from '../api/tiers'
+import { connectPayouts, fetchPayouts, fetchStats } from '../api/payments'
 import { useAuth } from '../hooks/useAuth'
 import { useConfirm } from '../hooks/useConfirm'
 
 const EMPTY_CONTENT_FORM = {
-  title: '',
-  description: '',
-  media_file: null,
-  collection: '',
-  minimum_tier: '',
-  publish_mode: 'now',
-  publish_at: '',
+  title: '', description: '', media_file: null,
+  collection: '', minimum_tier: '', publish_mode: 'now', publish_at: '',
+}
+
+const TABS = [
+  { key: 'publish', label: 'Publish content' },
+  { key: 'content', label: 'Your content' },
+  { key: 'collections', label: 'Collections' },
+  { key: 'tiers', label: 'Membership tiers' },
+  { key: 'payouts', label: 'Payouts' },
+]
+
+function PublishTab({ contentForm, setContentForm, collections, tiers, publish }) {
+  return (
+    <section className="content-card__body">
+      <form className="auth-form" onSubmit={(event) => { event.preventDefault(); publish.mutate() }}>
+        <input
+          className="field-input"
+          required
+          placeholder="Title"
+          value={contentForm.title}
+          onChange={(event) => setContentForm({ ...contentForm, title: event.target.value })}
+        />
+        <textarea
+          className="field-input"
+          placeholder="Description"
+          value={contentForm.description}
+          onChange={(event) => setContentForm({ ...contentForm, description: event.target.value })}
+        />
+        <input
+          type="file"
+          onChange={(event) => setContentForm({ ...contentForm, media_file: event.target.files[0] || null })}
+        />
+
+        <label>
+          Collection (optional)
+          <select
+            className="field-input"
+            value={contentForm.collection}
+            onChange={(event) => setContentForm({ ...contentForm, collection: event.target.value, minimum_tier: '' })}
+          >
+            <option value="">No collection</option>
+            {collections.data?.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+          </select>
+        </label>
+
+        <label>
+          Minimum tier {contentForm.collection && '(inherited from collection)'}
+          <select
+            className="field-input"
+            value={contentForm.minimum_tier}
+            disabled={!!contentForm.collection}
+            onChange={(event) => setContentForm({ ...contentForm, minimum_tier: event.target.value })}
+          >
+            <option value="">Free — no tier required</option>
+            {tiers.data?.map((t) => <option key={t.id} value={t.id}>{t.name} — Level {t.level}</option>)}
+          </select>
+        </label>
+
+        <fieldset className="publish-options">
+          <legend>When should this go live?</legend>
+          <label className="radio-label">
+            <input
+              type="radio"
+              name="publish_mode"
+              value="now"
+              checked={contentForm.publish_mode === 'now'}
+              onChange={() => setContentForm({ ...contentForm, publish_mode: 'now' })}
+            />
+            Publish immediately
+          </label>
+          <label className="radio-label">
+            <input
+              type="radio"
+              name="publish_mode"
+              value="schedule"
+              checked={contentForm.publish_mode === 'schedule'}
+              onChange={() => setContentForm({ ...contentForm, publish_mode: 'schedule' })}
+            />
+            Schedule for later
+          </label>
+          {contentForm.publish_mode === 'schedule' && (
+            <input
+              type="datetime-local"
+              className="field-input"
+              required
+              value={contentForm.publish_at}
+              onChange={(event) => setContentForm({ ...contentForm, publish_at: event.target.value })}
+            />
+          )}
+        </fieldset>
+
+        <button className="btn btn--primary" disabled={publish.isPending}>
+          {publish.isPending ? 'Publishing…' : 'Publish'}
+        </button>
+        {publish.isError && <p className="form-error">Unable to publish. Check the fields above.</p>}
+      </form>
+    </section>
+  )
+}
+
+function ContentTab({ content, onDelete }) {
+  return (
+    <section>
+      {content.data?.map((item) => (
+        <article className="content-card__body" key={item.id}>
+          <strong>{item.title}</strong>
+          <button className="btn btn--ghost btn--sm" onClick={() => onDelete(item)}>Delete</button>
+        </article>
+      ))}
+      {content.data?.length === 0 && <p className="empty-state">You haven't published anything yet.</p>}
+    </section>
+  )
+}
+
+function CollectionsTab({ content, collections, collectionForm, setCollectionForm, addCollection, onDelete }) {
+  return (
+    <section className="content-card__body">
+      <form className="auth-form" onSubmit={(event) => { event.preventDefault(); addCollection.mutate() }}>
+        <input
+          className="field-input"
+          required
+          placeholder="Collection title"
+          value={collectionForm.title}
+          onChange={(event) => setCollectionForm({ ...collectionForm, title: event.target.value })}
+        />
+        <textarea
+          className="field-input"
+          placeholder="Description"
+          value={collectionForm.description}
+          onChange={(event) => setCollectionForm({ ...collectionForm, description: event.target.value })}
+        />
+        <label>Include content</label>
+        {content.data?.map((item) => (
+          <label key={item.id} className="radio-label">
+            <input
+              type="checkbox"
+              checked={collectionForm.content_ids.includes(item.id)}
+              onChange={(event) => setCollectionForm({
+                ...collectionForm,
+                content_ids: event.target.checked
+                  ? [...collectionForm.content_ids, item.id]
+                  : collectionForm.content_ids.filter((selected) => selected !== item.id),
+              })}
+            />
+            {item.title}
+          </label>
+        ))}
+        <button className="btn btn--primary" disabled={addCollection.isPending}>Create collection</button>
+      </form>
+      {collections.data?.map((collection) => (
+        <article key={collection.id}>
+          <strong>{collection.title}</strong>
+          <button className="btn btn--ghost btn--sm" onClick={() => onDelete(collection)}>Delete</button>
+        </article>
+      ))}
+    </section>
+  )
+}
+
+function TiersTab({ tiers, tierForm, setTierForm, addTier, onDeactivate }) {
+  return (
+    <section className="content-card__body">
+      <form className="auth-form" onSubmit={(event) => { event.preventDefault(); addTier.mutate() }}>
+        <input
+          className="field-input"
+          required
+          placeholder="Name"
+          value={tierForm.name}
+          onChange={(event) => setTierForm({ ...tierForm, name: event.target.value })}
+        />
+        <textarea
+          className="field-input"
+          placeholder="Benefits"
+          value={tierForm.description}
+          onChange={(event) => setTierForm({ ...tierForm, description: event.target.value })}
+        />
+        <input
+          className="field-input"
+          required
+          type="number"
+          min="1"
+          step="0.01"
+          placeholder="Monthly price"
+          value={tierForm.price}
+          onChange={(event) => setTierForm({ ...tierForm, price: event.target.value })}
+        />
+        <select
+          className="field-input"
+          value={tierForm.level}
+          onChange={(event) => setTierForm({ ...tierForm, level: event.target.value })}
+        >
+          <option value="1">Level 1</option>
+          <option value="2">Level 2</option>
+          <option value="3">Level 3</option>
+        </select>
+        <button className="btn btn--primary" disabled={addTier.isPending}>Create tier</button>
+        {addTier.isError && <p className="form-error">{addTier.error.response?.data?.level?.[0] || 'Unable to create the tier.'}</p>}
+      </form>
+      {tiers.data?.map((tier) => (
+        <article key={tier.id}>
+          <strong>{tier.name} · ${tier.price}</strong>
+          <button className="btn btn--ghost btn--sm" onClick={() => onDeactivate(tier)}>Deactivate</button>
+        </article>
+      ))}
+    </section>
+  )
+}
+
+function PayoutsTab() {
+  const { data, isLoading } = useQuery({ queryKey: ['creator-payouts'], queryFn: fetchPayouts })
+  const connect = useMutation({
+    mutationFn: connectPayouts,
+    onSuccess: (result) => window.location.assign(result.url),
+  })
+
+  if (isLoading) return <p className="empty-state">Loading payout status…</p>
+
+  return (
+    <section className="content-card__body">
+      <h2 className="section-heading">Get paid with Stripe</h2>
+      {!data.connected && (
+        <p className="settings-info">Connect a Stripe account to start receiving payouts from your subscribers. This uses Stripe test mode.</p>
+      )}
+      {data.connected && !data.payouts_enabled && (
+        <p className="settings-info">Your Stripe account is connected but still needs more information before payouts can start.</p>
+      )}
+      {data.connected && data.payouts_enabled && (
+        <p className="message message--success">Payouts are active — Stripe deposits your earnings automatically.</p>
+      )}
+      {(!data.connected || !data.payouts_enabled) && (
+        <button className="btn btn--primary" disabled={connect.isPending} onClick={() => connect.mutate()}>
+          {connect.isPending ? 'Redirecting…' : data.connected ? 'Continue onboarding' : 'Connect with Stripe'}
+        </button>
+      )}
+      {connect.isError && <p className="form-error">Unable to start the Stripe connection.</p>}
+    </section>
+  )
+}
+
+function StatsTab() {
+  const { data, isLoading } = useQuery({ queryKey: ['creator-stats'], queryFn: fetchStats })
+  if (isLoading) return <p className="empty-state">Loading stats…</p>
+
+  return (
+    <section className="content-card__body">
+      <h2 className="section-heading">Subscribers by tier</h2>
+      <div className="stats-grid">
+        {data.subscriber_counts.map((row) => (
+          <div key={row.tier_name} className="stats-card">
+            <p className="stats-card__value">{row.count}</p>
+            <p className="stats-card__label">{row.tier_name}</p>
+          </div>
+        ))}
+        {data.subscriber_counts.length === 0 && <p className="empty-state">No active subscribers yet.</p>}
+      </div>
+
+      <h2 className="section-heading">Revenue by month</h2>
+      <div className="stats-table">
+        {data.monthly_revenue.map((row) => (
+          <div key={row.month} className="stats-table__row">
+            <span>{new Date(row.month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</span>
+            <span>${row.total}</span>
+          </div>
+        ))}
+        {data.monthly_revenue.length === 0 && <p className="empty-state">No revenue recorded yet.</p>}
+      </div>
+    </section>
+  )
 }
 
 export default function CreatorDashboard() {
   const { user } = useAuth()
   const client = useQueryClient()
   const confirm = useConfirm()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') || 'publish'
 
   const [contentForm, setContentForm] = useState(EMPTY_CONTENT_FORM)
   const [tierForm, setTierForm] = useState({ name: '', description: '', price: '', level: '1' })
@@ -48,9 +314,6 @@ export default function CreatorDashboard() {
       data.append('description', contentForm.description)
       if (contentForm.media_file) data.append('media_file', contentForm.media_file)
       if (contentForm.collection) data.append('collection', contentForm.collection)
-      // The backend forces the tier from the collection anyway, but we
-      // still skip sending it when a collection is chosen — matches the
-      // same UX rule the Django version had.
       if (!contentForm.collection && contentForm.minimum_tier) {
         data.append('minimum_tier', contentForm.minimum_tier)
       }
@@ -59,26 +322,17 @@ export default function CreatorDashboard() {
       }
       return createCreatorContent(data)
     },
-    onSuccess: () => {
-      setContentForm(EMPTY_CONTENT_FORM)
-      refresh()
-    },
+    onSuccess: () => { setContentForm(EMPTY_CONTENT_FORM); refresh() },
   })
 
   const addTier = useMutation({
     mutationFn: () => createTier({ ...tierForm, level: Number(tierForm.level) }),
-    onSuccess: () => {
-      setTierForm({ name: '', description: '', price: '', level: '1' })
-      refresh()
-    },
+    onSuccess: () => { setTierForm({ name: '', description: '', price: '', level: '1' }); refresh() },
   })
 
   const addCollection = useMutation({
     mutationFn: () => createCreatorCollection(collectionForm),
-    onSuccess: () => {
-      setCollectionForm({ title: '', description: '', content_ids: [] })
-      refresh()
-    },
+    onSuccess: () => { setCollectionForm({ title: '', description: '', content_ids: [] }); refresh() },
   })
 
   async function handleDeleteContent(item) {
@@ -107,196 +361,38 @@ export default function CreatorDashboard() {
   }
 
   return (
-    <section>
+    <div className="dashboard-layout">
       <h1 className="page-heading">Creator dashboard</h1>
 
-      <section className="content-card__body">
-        <h2 className="section-heading">Publish content</h2>
-        <form className="auth-form" onSubmit={(event) => { event.preventDefault(); publish.mutate() }}>
-          <input
-            className="field-input"
-            required
-            placeholder="Title"
-            value={contentForm.title}
-            onChange={(event) => setContentForm({ ...contentForm, title: event.target.value })}
-          />
-          <textarea
-            className="field-input"
-            placeholder="Description"
-            value={contentForm.description}
-            onChange={(event) => setContentForm({ ...contentForm, description: event.target.value })}
-          />
-          <input
-            type="file"
-            onChange={(event) => setContentForm({ ...contentForm, media_file: event.target.files[0] || null })}
-          />
-
-          <label>
-            Collection (optional)
-            <select
-              className="field-input"
-              value={contentForm.collection}
-              onChange={(event) => setContentForm({ ...contentForm, collection: event.target.value, minimum_tier: '' })}
-            >
-              <option value="">No collection</option>
-              {collections.data?.map((c) => (
-                <option key={c.id} value={c.id}>{c.title}</option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Minimum tier {contentForm.collection && '(inherited from collection)'}
-            <select
-              className="field-input"
-              value={contentForm.minimum_tier}
-              disabled={!!contentForm.collection}
-              onChange={(event) => setContentForm({ ...contentForm, minimum_tier: event.target.value })}
-            >
-              <option value="">Free — no tier required</option>
-              {tiers.data?.map((t) => (
-                <option key={t.id} value={t.id}>{t.name} — Level {t.level}</option>
-              ))}
-            </select>
-          </label>
-
-          <fieldset className="publish-options">
-            <legend>When should this go live?</legend>
-            <label className="radio-label">
-              <input
-                type="radio"
-                name="publish_mode"
-                value="now"
-                checked={contentForm.publish_mode === 'now'}
-                onChange={() => setContentForm({ ...contentForm, publish_mode: 'now' })}
-              />
-              Publish immediately
-            </label>
-            <label className="radio-label">
-              <input
-                type="radio"
-                name="publish_mode"
-                value="schedule"
-                checked={contentForm.publish_mode === 'schedule'}
-                onChange={() => setContentForm({ ...contentForm, publish_mode: 'schedule' })}
-              />
-              Schedule for later
-            </label>
-            {contentForm.publish_mode === 'schedule' && (
-              <input
-                type="datetime-local"
-                className="field-input"
-                required
-                value={contentForm.publish_at}
-                onChange={(event) => setContentForm({ ...contentForm, publish_at: event.target.value })}
-              />
-            )}
-          </fieldset>
-
-          <button className="btn btn--primary" disabled={publish.isPending}>
-            {publish.isPending ? 'Publishing…' : 'Publish'}
-          </button>
-          {publish.isError && <p className="form-error">Unable to publish. Check the fields above.</p>}
-        </form>
-      </section>
-
-      <section>
-        <h2 className="section-heading">Your content</h2>
-        {content.data?.map((item) => (
-          <article className="content-card__body" key={item.id}>
-            <strong>{item.title}</strong>
-            <button className="btn btn--ghost btn--sm" onClick={() => handleDeleteContent(item)}>Delete</button>
-          </article>
-        ))}
-      </section>
-
-      <section className="content-card__body">
-        <h2 className="section-heading">Collections</h2>
-        <form className="auth-form" onSubmit={(event) => { event.preventDefault(); addCollection.mutate() }}>
-          <input
-            className="field-input"
-            required
-            placeholder="Collection title"
-            value={collectionForm.title}
-            onChange={(event) => setCollectionForm({ ...collectionForm, title: event.target.value })}
-          />
-          <textarea
-            className="field-input"
-            placeholder="Description"
-            value={collectionForm.description}
-            onChange={(event) => setCollectionForm({ ...collectionForm, description: event.target.value })}
-          />
-          <label>Include content</label>
-          {content.data?.map((item) => (
-            <label key={item.id} className="radio-label">
-              <input
-                type="checkbox"
-                checked={collectionForm.content_ids.includes(item.id)}
-                onChange={(event) => setCollectionForm({
-                  ...collectionForm,
-                  content_ids: event.target.checked
-                    ? [...collectionForm.content_ids, item.id]
-                    : collectionForm.content_ids.filter((selected) => selected !== item.id),
-                })}
-              />
-              {item.title}
-            </label>
-          ))}
-          <button className="btn btn--primary" disabled={addCollection.isPending}>Create collection</button>
-        </form>
-        {collections.data?.map((collection) => (
-          <article key={collection.id}>
-            <strong>{collection.title}</strong>
-            <button className="btn btn--ghost btn--sm" onClick={() => handleDeleteCollection(collection)}>Delete</button>
-          </article>
-        ))}
-      </section>
-
-      <section className="content-card__body">
-        <h2 className="section-heading">Membership tiers</h2>
-        <form className="auth-form" onSubmit={(event) => { event.preventDefault(); addTier.mutate() }}>
-          <input
-            className="field-input"
-            required
-            placeholder="Name"
-            value={tierForm.name}
-            onChange={(event) => setTierForm({ ...tierForm, name: event.target.value })}
-          />
-          <textarea
-            className="field-input"
-            placeholder="Benefits"
-            value={tierForm.description}
-            onChange={(event) => setTierForm({ ...tierForm, description: event.target.value })}
-          />
-          <input
-            className="field-input"
-            required
-            type="number"
-            min="1"
-            step="0.01"
-            placeholder="Monthly price"
-            value={tierForm.price}
-            onChange={(event) => setTierForm({ ...tierForm, price: event.target.value })}
-          />
-          <select
-            className="field-input"
-            value={tierForm.level}
-            onChange={(event) => setTierForm({ ...tierForm, level: event.target.value })}
+      <nav className="dashboard-tabs">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            className={`dashboard-tab ${activeTab === tab.key ? 'is-active' : ''}`}
+            onClick={() => setSearchParams({ tab: tab.key })}
           >
-            <option value="1">Level 1</option>
-            <option value="2">Level 2</option>
-            <option value="3">Level 3</option>
-          </select>
-          <button className="btn btn--primary" disabled={addTier.isPending}>Create tier</button>
-          {addTier.isError && <p className="form-error">{addTier.error.response?.data?.level?.[0] || 'Unable to create the tier.'}</p>}
-        </form>
-        {tiers.data?.map((tier) => (
-          <article key={tier.id}>
-            <strong>{tier.name} · ${tier.price}</strong>
-            <button className="btn btn--ghost btn--sm" onClick={() => handleDeactivateTier(tier)}>Deactivate</button>
-          </article>
+            {tab.label}
+          </button>
         ))}
-      </section>
-    </section>
+      </nav>
+
+      {activeTab === 'publish' && (
+        <PublishTab contentForm={contentForm} setContentForm={setContentForm} collections={collections} tiers={tiers} publish={publish} />
+      )}
+      {activeTab === 'content' && <ContentTab content={content} onDelete={handleDeleteContent} />}
+      {activeTab === 'collections' && (
+        <CollectionsTab
+          content={content} collections={collections}
+          collectionForm={collectionForm} setCollectionForm={setCollectionForm}
+          addCollection={addCollection} onDelete={handleDeleteCollection}
+        />
+      )}
+      {activeTab === 'tiers' && (
+        <TiersTab tiers={tiers} tierForm={tierForm} setTierForm={setTierForm} addTier={addTier} onDeactivate={handleDeactivateTier} />
+      )}
+      {activeTab === 'payouts' && <PayoutsTab />}
+      {activeTab === 'stats' && <StatsTab />}
+    </div>
   )
 }

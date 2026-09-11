@@ -122,6 +122,7 @@ EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=10)
 STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET')
 STRIPE_PLATFORM_FEE_PERCENT = env.int('STRIPE_PLATFORM_FEE_PERCENT', default=10)
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:5173')
 
 # ---------------------------------------------------------------------------
 # Django REST Framework + JWT
