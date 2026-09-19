@@ -8,6 +8,8 @@ import {
   deleteCreatorContent,
   fetchCreatorCollections,
   fetchCreatorContent,
+  updateCreatorCollection,
+  updateCreatorContent,
 } from '../api/content'
 import { createTier, deleteTier, fetchTiers } from '../api/tiers'
 import { connectPayouts, fetchPayouts, fetchStats } from '../api/payments'
@@ -26,6 +28,34 @@ const TABS = [
   { key: 'tiers', label: 'Membership tiers' },
   { key: 'payouts', label: 'Payouts' },
 ]
+
+function ContentPickerStrip({ content, selectedIds, onToggle }) {
+  return (
+    <div className="featured-picker__strip">
+      {content.data?.map((item) => (
+        <label key={item.id} className="featured-pick-card">
+          <input
+            type="checkbox"
+            hidden
+            checked={selectedIds.includes(item.id)}
+            onChange={(event) => onToggle(item.id, event.target.checked)}
+          />
+          <div className="featured-pick-card__thumb">
+            {item.content_type === 'image' && item.media_file ? (
+              <img src={item.media_file} alt="" />
+            ) : (
+              <span className="featured-pick-card__icon">
+                {item.content_type === 'video' ? '🎬' : item.content_type === 'audio' ? '🎵' : '📝'}
+              </span>
+            )}
+            <span className="featured-pick-card__check">✓</span>
+          </div>
+          <p className="featured-pick-card__title">{item.title}</p>
+        </label>
+      ))}
+    </div>
+  )
+}
 
 function PublishTab({ contentForm, setContentForm, collections, tiers, publish }) {
   return (
@@ -116,61 +146,292 @@ function PublishTab({ contentForm, setContentForm, collections, tiers, publish }
   )
 }
 
-function ContentTab({ content, onDelete }) {
+function DashContentCard({ item, collections, tiers, onDelete, onUpdated }) {
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({
+    title: item.title,
+    description: item.description,
+    collection: item.collection_id || '',
+    minimum_tier: item.minimum_tier?.id || '',
+  })
+
+  const save = useMutation({
+    mutationFn: () => updateCreatorContent(item.id, {
+      title: form.title,
+      description: form.description,
+      collection: form.collection || null,
+      // Same rule as the publish form: a collection always wins the tier,
+      // so we don't even send minimum_tier when one is selected.
+      ...(form.collection ? {} : { minimum_tier: form.minimum_tier || null }),
+    }),
+    onSuccess: () => { setEditing(false); onUpdated() },
+  })
+
+  return (
+    <article className="dash-content-card">
+      <div className="dash-content-card__media">
+        {item.content_type === 'image' && item.media_file ? (
+          <img src={item.media_file} alt={item.title} />
+        ) : item.content_type === 'video' ? (
+          <>
+            {item.media_file && <video src={item.media_file} muted />}
+            <span className="dash-content-card__badge">Video</span>
+          </>
+        ) : item.content_type === 'audio' ? (
+          <div className="dash-content-card__audio">
+            {item.media_file && <audio controls src={item.media_file} />}
+          </div>
+        ) : (
+          <div className="dash-content-card__text-preview">
+            <p>{item.description || 'No description.'}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="dash-content-card__body">
+        {editing ? (
+          <form className="auth-form" onSubmit={(event) => { event.preventDefault(); save.mutate() }}>
+            <input
+              className="field-input"
+              required
+              value={form.title}
+              onChange={(event) => setForm({ ...form, title: event.target.value })}
+            />
+            <textarea
+              className="field-input"
+              value={form.description}
+              onChange={(event) => setForm({ ...form, description: event.target.value })}
+            />
+            <select
+              className="field-input"
+              value={form.collection}
+              onChange={(event) => setForm({ ...form, collection: event.target.value, minimum_tier: '' })}
+            >
+              <option value="">No collection</option>
+              {collections.data?.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+            </select>
+            <select
+              className="field-input"
+              value={form.minimum_tier}
+              disabled={!!form.collection}
+              onChange={(event) => setForm({ ...form, minimum_tier: event.target.value })}
+            >
+              <option value="">Free — no tier required</option>
+              {tiers.data?.map((t) => <option key={t.id} value={t.id}>{t.name} — Level {t.level}</option>)}
+            </select>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn--primary btn--sm" disabled={save.isPending}>
+                {save.isPending ? 'Saving…' : 'Save'}
+              </button>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEditing(false)}>Cancel</button>
+            </div>
+            {save.isError && <p className="form-error">Unable to save changes.</p>}
+          </form>
+        ) : (
+          <>
+            <p className="dash-content-card__title">{item.title}</p>
+            <p className="dash-content-card__meta">{item.minimum_tier?.name || 'Free'}</p>
+          </>
+        )}
+      </div>
+
+      {!editing && (
+        <div className="dash-content-card__actions">
+          <button className="btn btn--ghost btn--sm" onClick={() => setEditing(true)}>Edit</button>
+          <button className="btn btn--ghost btn--sm" onClick={() => onDelete(item)}>Delete</button>
+        </div>
+      )}
+    </article>
+  )
+}
+
+function ContentTab({ content, collections, tiers, onDelete, onUpdated }) {
   return (
     <section>
-      {content.data?.map((item) => (
-        <article className="content-card__body" key={item.id}>
-          <strong>{item.title}</strong>
-          <button className="btn btn--ghost btn--sm" onClick={() => onDelete(item)}>Delete</button>
-        </article>
-      ))}
+      <div className="dash-content-grid">
+        {content.data?.map((item) => (
+          <DashContentCard key={item.id} item={item} collections={collections} tiers={tiers} onDelete={onDelete} onUpdated={onUpdated} />
+        ))}
+      </div>
       {content.data?.length === 0 && <p className="empty-state">You haven't published anything yet.</p>}
     </section>
   )
 }
 
-function CollectionsTab({ content, collections, collectionForm, setCollectionForm, addCollection, onDelete }) {
+function DashCollectionCard({ collection, content, tiers, onDelete, onUpdated }) {
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({
+    title: collection.title,
+    description: collection.description,
+    minimum_tier: collection.minimum_tier || '',
+    content_ids: collection.items || [],
+    cover_image: null,
+  })
+
+  const previewUrl = form.cover_image ? URL.createObjectURL(form.cover_image) : collection.cover_image
+
+  const save = useMutation({
+    mutationFn: () => {
+      const data = new FormData()
+      data.append('title', form.title)
+      data.append('description', form.description)
+      if (form.minimum_tier) data.append('minimum_tier', form.minimum_tier)
+      if (form.cover_image) data.append('cover_image', form.cover_image)
+      form.content_ids.forEach((id) => data.append('content_ids', id))
+      return updateCreatorCollection(collection.id, data)
+    },
+    onSuccess: () => { setEditing(false); onUpdated() },
+  })
+
+  function toggleContent(id, checked) {
+    setForm({
+      ...form,
+      content_ids: checked ? [...form.content_ids, id] : form.content_ids.filter((existing) => existing !== id),
+    })
+  }
+
   return (
-    <section className="content-card__body">
-      <form className="auth-form" onSubmit={(event) => { event.preventDefault(); addCollection.mutate() }}>
-        <input
-          className="field-input"
-          required
-          placeholder="Collection title"
-          value={collectionForm.title}
-          onChange={(event) => setCollectionForm({ ...collectionForm, title: event.target.value })}
-        />
-        <textarea
-          className="field-input"
-          placeholder="Description"
-          value={collectionForm.description}
-          onChange={(event) => setCollectionForm({ ...collectionForm, description: event.target.value })}
-        />
-        <label>Include content</label>
-        {content.data?.map((item) => (
-          <label key={item.id} className="radio-label">
+    <article className="collection-card">
+      <div className="collection-card__cover">
+        {previewUrl ? (
+          <img src={previewUrl} alt="" />
+        ) : (
+          <span aria-hidden="true">{collection.title?.[0]?.toUpperCase()}</span>
+        )}
+      </div>
+
+      <div className="collection-card__body">
+        {editing ? (
+          <form className="auth-form" onSubmit={(event) => { event.preventDefault(); save.mutate() }}>
             <input
-              type="checkbox"
-              checked={collectionForm.content_ids.includes(item.id)}
-              onChange={(event) => setCollectionForm({
-                ...collectionForm,
-                content_ids: event.target.checked
-                  ? [...collectionForm.content_ids, item.id]
-                  : collectionForm.content_ids.filter((selected) => selected !== item.id),
-              })}
+              className="field-input"
+              required
+              value={form.title}
+              onChange={(event) => setForm({ ...form, title: event.target.value })}
             />
-            {item.title}
-          </label>
+            <textarea
+              className="field-input"
+              value={form.description}
+              onChange={(event) => setForm({ ...form, description: event.target.value })}
+            />
+            <label>
+              Cover image
+              <input type="file" accept="image/*" onChange={(event) => setForm({ ...form, cover_image: event.target.files[0] || null })} />
+            </label>
+            <select
+              className="field-input"
+              value={form.minimum_tier}
+              onChange={(event) => setForm({ ...form, minimum_tier: event.target.value })}
+            >
+              <option value="">Free — no tier required</option>
+              {tiers.data?.map((t) => <option key={t.id} value={t.id}>{t.name} — Level {t.level}</option>)}
+            </select>
+            <label>Content in this collection</label>
+            <ContentPickerStrip content={content} selectedIds={form.content_ids} onToggle={toggleContent} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn--primary btn--sm" disabled={save.isPending}>
+                {save.isPending ? 'Saving…' : 'Save'}
+              </button>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setEditing(false)}>Cancel</button>
+            </div>
+            {save.isError && <p className="form-error">Unable to save changes.</p>}
+          </form>
+        ) : (
+          <>
+            <h3 className="collection-card__title">{collection.title}</h3>
+            <p className="collection-card__description">{collection.description}</p>
+            <div className="collection-card__meta">
+              <span>{collection.item_count} item{collection.item_count === 1 ? '' : 's'}</span>
+            </div>
+            <div className="dash-content-card__actions">
+              <button className="btn btn--ghost btn--sm" onClick={() => setEditing(true)}>Edit</button>
+              <button className="btn btn--ghost btn--sm" onClick={() => onDelete(collection)}>Delete</button>
+            </div>
+          </>
+        )}
+      </div>
+    </article>
+  )
+}
+
+function CollectionsTab({ content, tiers, collections, collectionForm, setCollectionForm, addCollection, onDelete, onUpdated }) {
+  const [showForm, setShowForm] = useState(false)
+
+  function toggleContent(id, checked) {
+    setCollectionForm({
+      ...collectionForm,
+      content_ids: checked
+        ? [...collectionForm.content_ids, id]
+        : collectionForm.content_ids.filter((existing) => existing !== id),
+    })
+  }
+
+  return (
+    <section>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <button type="button" className="btn btn--primary btn--sm" style={{ width: 'auto' }} onClick={() => setShowForm((v) => !v)}>
+          {showForm ? 'Cancel' : '+ Create collection'}
+        </button>
+      </div>
+
+      {showForm && (
+        <section className="content-card__body" style={{ marginBottom: 20 }}>
+          <form
+            className="auth-form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              addCollection.mutate(undefined, { onSuccess: () => setShowForm(false) })
+            }}
+          >
+            <input
+              className="field-input"
+              required
+              placeholder="Collection title"
+              value={collectionForm.title}
+              onChange={(event) => setCollectionForm({ ...collectionForm, title: event.target.value })}
+            />
+            <textarea
+              className="field-input"
+              placeholder="Description"
+              value={collectionForm.description}
+              onChange={(event) => setCollectionForm({ ...collectionForm, description: event.target.value })}
+            />
+            <label>
+              Cover image
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) => setCollectionForm({ ...collectionForm, cover_image: event.target.files[0] || null })}
+              />
+            </label>
+            <select
+              className="field-input"
+              value={collectionForm.minimum_tier || ''}
+              onChange={(event) => setCollectionForm({ ...collectionForm, minimum_tier: event.target.value })}
+            >
+              <option value="">Free — no tier required</option>
+              {tiers.data?.map((t) => <option key={t.id} value={t.id}>{t.name} — Level {t.level}</option>)}
+            </select>
+            <label>Include content</label>
+            <ContentPickerStrip content={content} selectedIds={collectionForm.content_ids} onToggle={toggleContent} />
+            <button className="btn btn--primary" disabled={addCollection.isPending}>Create collection</button>
+          </form>
+        </section>
+      )}
+
+      <div className="collection-grid">
+        {collections.data?.map((collection) => (
+          <DashCollectionCard
+            key={collection.id}
+            collection={collection}
+            content={content}
+            tiers={tiers}
+            onDelete={onDelete}
+            onUpdated={onUpdated}
+          />
         ))}
-        <button className="btn btn--primary" disabled={addCollection.isPending}>Create collection</button>
-      </form>
-      {collections.data?.map((collection) => (
-        <article key={collection.id}>
-          <strong>{collection.title}</strong>
-          <button className="btn btn--ghost btn--sm" onClick={() => onDelete(collection)}>Delete</button>
-        </article>
-      ))}
+      </div>
+      {collections.data?.length === 0 && <p className="empty-state">You haven't created any collections yet.</p>}
     </section>
   )
 }
@@ -295,8 +556,7 @@ export default function CreatorDashboard() {
 
   const [contentForm, setContentForm] = useState(EMPTY_CONTENT_FORM)
   const [tierForm, setTierForm] = useState({ name: '', description: '', price: '', level: '1' })
-  const [collectionForm, setCollectionForm] = useState({ title: '', description: '', content_ids: [] })
-
+  const [collectionForm, setCollectionForm] = useState({ title: '', description: '', minimum_tier: '', content_ids: [], cover_image: null })
   const content = useQuery({ queryKey: ['creator-content'], queryFn: fetchCreatorContent, enabled: user?.is_creator })
   const tiers = useQuery({ queryKey: ['creator-tiers'], queryFn: fetchTiers, enabled: user?.is_creator })
   const collections = useQuery({ queryKey: ['creator-collections'], queryFn: fetchCreatorCollections, enabled: user?.is_creator })
@@ -332,9 +592,8 @@ export default function CreatorDashboard() {
 
   const addCollection = useMutation({
     mutationFn: () => createCreatorCollection(collectionForm),
-    onSuccess: () => { setCollectionForm({ title: '', description: '', content_ids: [] }); refresh() },
+    onSuccess: () => { setCollectionForm({ title: '', description: '', minimum_tier: '', content_ids: [] }); refresh() },
   })
-
   async function handleDeleteContent(item) {
     if (await confirm(`Delete "${item.title}"? This cannot be undone.`)) {
       await deleteCreatorContent(item.id)
@@ -380,12 +639,14 @@ export default function CreatorDashboard() {
       {activeTab === 'publish' && (
         <PublishTab contentForm={contentForm} setContentForm={setContentForm} collections={collections} tiers={tiers} publish={publish} />
       )}
-      {activeTab === 'content' && <ContentTab content={content} onDelete={handleDeleteContent} />}
+      {activeTab === 'content' && (
+        <ContentTab content={content} collections={collections} tiers={tiers} onDelete={handleDeleteContent} onUpdated={refresh} />
+      )}
       {activeTab === 'collections' && (
         <CollectionsTab
-          content={content} collections={collections}
+          content={content} tiers={tiers} collections={collections}
           collectionForm={collectionForm} setCollectionForm={setCollectionForm}
-          addCollection={addCollection} onDelete={handleDeleteCollection}
+          addCollection={addCollection} onDelete={handleDeleteCollection} onUpdated={refresh}
         />
       )}
       {activeTab === 'tiers' && (

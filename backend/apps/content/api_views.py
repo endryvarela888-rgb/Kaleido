@@ -255,7 +255,7 @@ class CreatorCollectionDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CreatorCollectionSerializer
 
     def get_queryset(self):
-        return Collection.objects.filter(creator=self.request.user)
+        return Collection.objects.filter(creator=self.request.user).annotate(item_count=Count('items'))
 
     def get_serializer_context(self):
         return {'request': self.request}

@@ -129,11 +129,19 @@ class CreatorCollectionSerializer(serializers.ModelSerializer):
     content_ids = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Content.objects.all(), write_only=True, required=False,
     )
+    item_count = serializers.IntegerField(read_only=True, default=0)
+    items = serializers.SerializerMethodField()
 
     class Meta:
         model = Collection
-        fields = ['id', 'title', 'description', 'cover_image', 'minimum_tier', 'content_ids', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'description', 'cover_image', 'minimum_tier', 'content_ids', 'item_count', 'items', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_items(self, obj):
+        """IDs of content currently in this collection — lets the frontend
+        pre-check the right boxes when editing, since `content_ids` above
+        is write-only (used only to submit a new selection)."""
+        return list(obj.items.values_list('id', flat=True))
 
     def validate_minimum_tier(self, tier):
         if tier and tier.creator_id != self.context['request'].user.id:
