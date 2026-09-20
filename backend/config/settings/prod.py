@@ -20,4 +20,4 @@ CSRF_COOKIE_SECURE = False
 # Buenas prácticas de seguridad que sí podemos activar ya, sin depender de HTTPS
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = 'DENY'
+X_FRAME_OPTIONS = 'DENY' 

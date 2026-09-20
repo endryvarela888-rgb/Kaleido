@@ -6,10 +6,10 @@ export default function ContentCard({ item }) {
 
   return (
     <article className="content-card">
-      <header className="content-card__creator">
+      <Link to={`/profile/${item.creator.id}`} className="content-card__creator">
         <span className="avatar avatar--sm">{initial}</span>
         <span className="creator-name">{item.creator.display_name}</span>
-      </header>
+      </Link>
 
       {item.content_type !== 'text' && (
         <div className={`content-card__media ${item.is_locked ? 'is-locked' : ''}`}>
@@ -24,9 +24,9 @@ export default function ContentCard({ item }) {
                 </svg>
                 <span className="lock-seal__label">Subscribers only</span>
                 {item.minimum_tier && (
-                  <span className="btn btn--primary btn--sm">
+                  <Link to={`/profile/${item.creator.id}`} className="btn btn--primary btn--sm">
                     Unlock "{item.minimum_tier.name}" — ${item.minimum_tier.price}/mo
-                  </span>
+                  </Link>
                 )}
               </div>
             </>
