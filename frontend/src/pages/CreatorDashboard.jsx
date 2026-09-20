@@ -438,49 +438,66 @@ function CollectionsTab({ content, tiers, collections, collectionForm, setCollec
 
 function TiersTab({ tiers, tierForm, setTierForm, addTier, onDeactivate }) {
   return (
-    <section className="content-card__body">
-      <form className="auth-form" onSubmit={(event) => { event.preventDefault(); addTier.mutate() }}>
-        <input
-          className="field-input"
-          required
-          placeholder="Name"
-          value={tierForm.name}
-          onChange={(event) => setTierForm({ ...tierForm, name: event.target.value })}
-        />
-        <textarea
-          className="field-input"
-          placeholder="Benefits"
-          value={tierForm.description}
-          onChange={(event) => setTierForm({ ...tierForm, description: event.target.value })}
-        />
-        <input
-          className="field-input"
-          required
-          type="number"
-          min="1"
-          step="0.01"
-          placeholder="Monthly price"
-          value={tierForm.price}
-          onChange={(event) => setTierForm({ ...tierForm, price: event.target.value })}
-        />
-        <select
-          className="field-input"
-          value={tierForm.level}
-          onChange={(event) => setTierForm({ ...tierForm, level: event.target.value })}
-        >
-          <option value="1">Level 1</option>
-          <option value="2">Level 2</option>
-          <option value="3">Level 3</option>
-        </select>
-        <button className="btn btn--primary" disabled={addTier.isPending}>Create tier</button>
-        {addTier.isError && <p className="form-error">{addTier.error.response?.data?.level?.[0] || 'Unable to create the tier.'}</p>}
-      </form>
-      {tiers.data?.map((tier) => (
-        <article key={tier.id}>
-          <strong>{tier.name} · ${tier.price}</strong>
-          <button className="btn btn--ghost btn--sm" onClick={() => onDeactivate(tier)}>Deactivate</button>
-        </article>
-      ))}
+    <section>
+      <div className="content-card__body" style={{ marginBottom: 24 }}>
+        <form className="auth-form" onSubmit={(event) => { event.preventDefault(); addTier.mutate() }}>
+          <input
+            className="field-input"
+            required
+            placeholder="Name"
+            value={tierForm.name}
+            onChange={(event) => setTierForm({ ...tierForm, name: event.target.value })}
+          />
+          <textarea
+            className="field-input"
+            placeholder="Benefits"
+            value={tierForm.description}
+            onChange={(event) => setTierForm({ ...tierForm, description: event.target.value })}
+          />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <input
+              className="field-input"
+              required
+              type="number"
+              min="1"
+              step="0.01"
+              placeholder="Monthly price"
+              value={tierForm.price}
+              onChange={(event) => setTierForm({ ...tierForm, price: event.target.value })}
+              style={{ flex: 1 }}
+            />
+            <select
+              className="field-input"
+              value={tierForm.level}
+              onChange={(event) => setTierForm({ ...tierForm, level: event.target.value })}
+              style={{ flex: 1 }}
+            >
+              <option value="1">Level 1</option>
+              <option value="2">Level 2</option>
+              <option value="3">Level 3</option>
+            </select>
+          </div>
+          <button className="btn btn--primary btn--sm" disabled={addTier.isPending}>
+            {addTier.isPending ? 'Creating…' : 'Create tier'}
+          </button>
+          {addTier.isError && <p className="form-error">{addTier.error.response?.data?.level?.[0] || 'Unable to create the tier.'}</p>}
+        </form>
+      </div>
+
+      <div className="tier-list">
+        {tiers.data?.map((tier) => (
+          <article key={tier.id} className="tier-card">
+            <p className="tier-card__level">Level {tier.level}</p>
+            <p className="tier-card__name">{tier.name}</p>
+            <p className="tier-card__price">${tier.price}/mo</p>
+            {tier.description && <p className="tier-card__description">{tier.description}</p>}
+            <button className="btn btn--ghost btn--sm" onClick={() => onDeactivate(tier)}>
+              Deactivate
+            </button>
+          </article>
+        ))}
+        {tiers.data?.length === 0 && <p className="empty-state">You haven't created any tiers yet.</p>}
+      </div>
     </section>
   )
 }
