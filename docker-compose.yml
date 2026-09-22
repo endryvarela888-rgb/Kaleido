@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kaleido_db
+      POSTGRES_USER: kaleido_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql    # ← cambiado, sin el /data al final
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kaleido_user -d kaleido_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env.docker
+    volumes:
+      - staticfiles:/app/staticfiles
+      - media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - staticfiles:/app/staticfiles:ro
+      - media:/app/media:ro
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  staticfiles:
+  media:
