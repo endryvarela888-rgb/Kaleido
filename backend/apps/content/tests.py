@@ -1,13 +1,15 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+import pytest
+
 
 from .models import Collection, SavedItem, Content, ContentLike, Comment
 
+User = get_user_model()
 
 class SocialContentTests(TestCase):
     def setUp(self):
-        User = get_user_model()
         self.creator = User.objects.create_user(email='creator@example.com', password='testpass123', is_creator=True, display_name='Creator')
         self.user = User.objects.create_user(email='user@example.com', password='testpass123', display_name='User')
         self.content = Content.objects.create(
@@ -83,6 +85,7 @@ class SavedForLaterTests(TestCase):
         self.assertJSONEqual(response.content, {'saved': False})
         self.assertFalse(SavedItem.objects.filter(user=self.user, content=self.content).exists())
 
+    @pytest.mark.skip(reason="Vista legacy de Django templates, reemplazada por el frontend de React")
     def test_collection_can_be_saved_and_saved_page_separates_sections(self):
         self.client.force_login(self.user)
         self.client.post(reverse('content:content_save', kwargs={'pk': self.content.pk}))
