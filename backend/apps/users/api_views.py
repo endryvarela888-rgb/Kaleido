@@ -1,8 +1,10 @@
 import random
+import logging
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
+from django.contrib.sites import requests
 from django.core import exceptions as django_exceptions
 from django.shortcuts import get_object_or_404
 from django.db.models import Count
@@ -40,6 +42,9 @@ class MeView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
+logger = logging.getLogger(__name__)
+
+
 class SignupView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -48,10 +53,25 @@ class SignupView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         _send_activation_email(request, user)
+        _notify_n8n_new_user(user)
         return Response(
             {'detail': 'Check your email to activate your account.'},
             status=status.HTTP_201_CREATED,
         )
+
+
+def _notify_n8n_new_user(user):
+    """Avisa a n8n para la notificación por email. Si n8n está caído o
+    tarda, no debe romper el signup del usuario real — por eso todo
+    va en un try/except silencioso con timeout corto."""
+    try:
+        requests.post(
+            'http://n8n:5678/webhook/nuevo-usuario',
+            json={'email': user.email, 'display_name': user.display_name},
+            timeout=3,
+        )
+    except requests.RequestException:
+        logger.warning('No se pudo notificar a n8n sobre el nuevo usuario %s', user.email)
 
 
 class DiscoverCreatorsView(APIView):
