@@ -1,10 +1,10 @@
 import random
 import logging
+import requests
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
-from django.contrib.sites import requests
 from django.core import exceptions as django_exceptions
 from django.shortcuts import get_object_or_404
 from django.db.models import Count
